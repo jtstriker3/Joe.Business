@@ -66,5 +66,43 @@ namespace Joe.Business
 
             return builder.ToString();
         }
+
+
+        /// <summary>
+        /// Reflection Extentions to mimic .Net 4.5
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="type"></param>
+        /// <param name="inharit"></param>
+        /// <returns></returns>
+        public static T GetCustomAttribute<T>(this Type type, Boolean inharit = true)
+        {
+            return (T)type.GetCustomAttributes(typeof(T), inharit).SingleOrDefault();
+        }
+
+        public static T GetCustomAttribute<T>(this PropertyInfo info, Boolean inharit = true)
+        {
+            return (T)info.GetCustomAttributes(typeof(T), inharit).SingleOrDefault();
+        }
+
+        public static IEnumerable<T> GetCustomAttributes<T>(this Type type, Boolean inharit = true)
+        {
+            return type.GetCustomAttributes(typeof(T), inharit).Cast<T>();
+        }
+
+        public static IEnumerable<T> GetCustomAttributes<T>(this PropertyInfo info, Boolean inharit = true)
+        {
+            return info.GetCustomAttributes(typeof(T), inharit).Cast<T>();
+        }
+
+        public static void SetValue(this PropertyInfo info, Object obj, Object value)
+        {
+            info.SetValue(obj, value, null);
+        }
+
+        public static Object GetValue(this PropertyInfo info, Object obj)
+        {
+            return info.GetValue(obj, null);
+        }
     }
 }

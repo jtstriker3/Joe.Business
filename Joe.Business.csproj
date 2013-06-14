@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Joe.Business</RootNamespace>
     <AssemblyName>Joe.Business</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">.\</SolutionDir>
@@ -42,6 +42,9 @@
     <Reference Include="EntityFramework">
       <HintPath>packages\EntityFramework.5.0.0\lib\net40\EntityFramework.dll</HintPath>
     </Reference>
+    <Reference Include="Joe.Init">
+      <HintPath>packages\Joe.Init.1.0.0.2\lib\net40\Joe.Init.dll</HintPath>
+    </Reference>
     <Reference Include="Joe.Map">
       <HintPath>packages\Joe.Map.1.0.1\lib\net40\Joe.Map.dll</HintPath>
     </Reference>
@@ -55,7 +58,7 @@
     </Reference>
     <Reference Include="Joe.Security, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Security.1.0.0\lib\net40\Joe.Security.dll</HintPath>
+      <HintPath>packages\Joe.Security.1.0.1.1\lib\net40\Joe.Security.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -78,7 +81,6 @@
     <Compile Include="IBusinessObject.cs" />
     <Compile Include="IEmail.cs" />
     <Compile Include="IManyToMany.cs" />
-    <Compile Include="Init.cs" />
     <Compile Include="ManyToManyExtentions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Report\IReport.cs" />

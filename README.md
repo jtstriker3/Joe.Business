@@ -1,4 +1,4 @@
 Joe.Business
 ============
 
-Business Object Frame work that builds up Joe.Map and Joe.MapBack
+Business Object Frame work that builds upon Joe.Map and Joe.MapBack

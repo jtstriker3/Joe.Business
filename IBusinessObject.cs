@@ -4,6 +4,7 @@ using System.Linq;
 using Joe.Map;
 using System.Linq.Expressions;
 using Joe.MapBack;
+using System.Collections;
 
 namespace Joe.Business
 {
@@ -11,6 +12,7 @@ namespace Joe.Business
     {
         void SetCrud(Object viewModel, Boolean listMode = false);
         void MapBOFunction(Object viewModel, Boolean getModel = true);
+        IEnumerable Get(String filter = null);
     }
 
 

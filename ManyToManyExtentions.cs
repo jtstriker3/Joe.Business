@@ -59,7 +59,7 @@ namespace Joe.Business
             {
                 var relationViewModels = listViewModel as List<TRelationViewModel> ?? listViewModel.ToList();
                 var fullList = new List<TRelationViewModel>();
-                foreach (var cachedViewModel in (List<TCachedViewModel>)StaticCacheHelper.Cache.Get(typeof(TCachedViewModel).Name))
+                foreach (var cachedViewModel in (List<TCachedViewModel>)Joe.Caching.Cache.Instance.Get(typeof(TCachedViewModel).Name))
                 {
                     var relationViewModel = Activator.CreateInstance<TRelationViewModel>();
 

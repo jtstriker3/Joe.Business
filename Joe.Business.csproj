@@ -36,11 +36,11 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="CacheControl">
-      <HintPath>packages\CacheControl.1.0.2\lib\CacheControl.dll</HintPath>
-    </Reference>
     <Reference Include="EntityFramework">
       <HintPath>packages\EntityFramework.5.0.0\lib\net40\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="Joe.Caching">
+      <HintPath>packages\Joe.Caching.1.0.0\lib\net40\Joe.Caching.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Init">
       <HintPath>packages\Joe.Init.1.0.0.2\lib\net40\Joe.Init.dll</HintPath>

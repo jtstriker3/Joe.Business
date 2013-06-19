@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Joe.Map;
-using Teradata.Utility.Caching;
+using Joe.Caching;
 using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -15,12 +15,11 @@ namespace Joe.Business
 {
     public static class StaticCacheHelper
     {
-        public static readonly CacheControl Cache = new CacheControl();
         public static List<Tuple<Type, Type>> CacheTypeDict { get; set; }
 
         public static void Init<TRepository>() where TRepository : IDBViewContext, new()
         {
-            CacheTypeDict.ForEach(cachedPair => Cache.Add(cachedPair.Item2.Name, new TimeSpan(Configuration.CacheDuration, 0, 0), (Func<Object>)delegate()
+            CacheTypeDict.ForEach(cachedPair => Cache.Instance.Add(cachedPair.Item2.Name, new TimeSpan(Configuration.CacheDuration, 0, 0), (Func<Object>)delegate()
                 {
                     return AddCacheItem<TRepository>(cachedPair);
                 }
@@ -43,18 +42,18 @@ namespace Joe.Business
 
         public static IEnumerable<TViewModel> GetCache<TViewModel>()
         {
-            return (IEnumerable<TViewModel>)Cache.Get(typeof(TViewModel).Name);
+            return (IEnumerable<TViewModel>)Cache.Instance.Get(typeof(TViewModel).Name);
         }
 
         public static void Flush(String key)
         {
             if (key == null) throw new ArgumentNullException("key");
-            Cache.Flush(key);
+            Cache.Instance.Flush(key);
         }
 
         public static void Flush()
         {
-            Cache.Flush();
+            Cache.Instance.Flush();
         }
 
     }

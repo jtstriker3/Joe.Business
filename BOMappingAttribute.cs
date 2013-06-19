@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Joe.Business
 {
-    [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
     public class BOMappingAttribute : Attribute
     {
         String Method { get; set; }
@@ -88,6 +88,7 @@ namespace Joe.Business
 
     }
 
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
     public class NestedBOMappingAttribute : Attribute
     {
         List<String> Parameters { get; set; }
@@ -145,5 +146,18 @@ namespace Joe.Business
             }
         }
 
+    }
+
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+    public class AllValuesAttribute : Attribute
+    {
+        public Type BusinessObject { get; private set; }
+        public Type Model { get; private set; }
+        public String Filter { get; set; }
+
+        public AllValuesAttribute(Type businessObject, Type model)
+        {
+
+        }
     }
 }

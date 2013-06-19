@@ -17,6 +17,7 @@ namespace Joe.Business
     {
         public abstract void SetCrud(Object viewModel, Boolean listMode = false);
         public abstract void MapBOFunction(Object viewModel, Boolean getModel = true);
+        public abstract IEnumerable Get(String filter = null);
         public static IEmailProvider EmailProvider { get; set; }
         public static ISecurityFactory _securityFactory;
         public static ISecurityFactory BOSecurityFactory
@@ -360,6 +361,12 @@ namespace Joe.Business
             return viewModels;
         }
 
+        public override IEnumerable Get(string filter = null)
+        {
+            int count = 0;
+            return this.Get(out count, stringfilter: filter, setCrudOverride: false, mapBOFunctionsOverride: false);
+        }
+
         #endregion
 
         public virtual TViewModel Get(params Object[] ids)
@@ -595,41 +602,60 @@ namespace Joe.Business
         {
             foreach (PropertyInfo viewModelInfo in viewModel.GetType().GetProperties())
             {
-                var boMap = viewModelInfo.GetCustomAttributes(typeof(BOMappingAttribute), true).SingleOrDefault() as BOMappingAttribute;
-                var nestBOMap = viewModelInfo.GetCustomAttributes(typeof(NestedBOMappingAttribute), true).SingleOrDefault() as NestedBOMappingAttribute;
-                if (boMap != null && boMap.HasMethod)
+                try
                 {
-                    viewModelInfo.SetValue(viewModel,
-                        boMap.GetMethodInfo(this, viewModel, typeof(TModel)).Invoke(this, boMap.GetParameters(viewModel,
-                        getModel ? this.GetModel : (Func<TViewModel, TModel>)null).ToArray()), null);
-                }
-                if (nestBOMap != null)
-                {
-                    if (viewModelInfo.PropertyType.ImplementsIEnumerable())
+                    var boMap = viewModelInfo.GetCustomAttributes(typeof(BOMappingAttribute), true).SingleOrDefault() as BOMappingAttribute;
+                    var nestBOMap = viewModelInfo.GetCustomAttributes(typeof(NestedBOMappingAttribute), true).SingleOrDefault() as NestedBOMappingAttribute;
+                    var allValuesMap = viewModelInfo.GetCustomAttributes(typeof(AllValuesAttribute), true).SingleOrDefault() as AllValuesAttribute;
+                    if (boMap != null && boMap.HasMethod)
                     {
-                        var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
-                        var nestedViews = ((IEnumerable)viewModelInfo.GetValue(viewModel)).Cast<Object>();
-                        var nestedViewBO = BusinessObject.CreateBO(nestBOMap.BusinessObject, nestBOMap.Model, viewModelType, typeof(TRepository));
-                        var list = BusinessObject.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
-                        var listAddMethod = list.GetType().GetMethod("Add");
-                        foreach (var nestedView in nestedViews)
+                        viewModelInfo.SetValue(viewModel,
+                            boMap.GetMethodInfo(this, viewModel, typeof(TModel)).Invoke(this, boMap.GetParameters(viewModel,
+                            getModel ? this.GetModel : (Func<TViewModel, TModel>)null).ToArray()), null);
+                    }
+                    if (allValuesMap != null)
+                    {
+                        if (viewModelInfo.PropertyType.ImplementsIEnumerable())
                         {
+                            var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
+                            var allValuesBO = BusinessObject.CreateBO(allValuesMap.BusinessObject, allValuesMap.Model, viewModelType, typeof(TRepository));
+
+                            viewModelInfo.SetValue(viewModel, allValuesBO.Get(allValuesMap.Filter));
+                            var list = BusinessObject.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
+                        }
+                        else throw new Exception("Property Must Implement IEnumerable<>");
+                    }
+                    if (nestBOMap != null)
+                    {
+                        if (viewModelInfo.PropertyType.ImplementsIEnumerable())
+                        {
+                            var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
+                            var nestedViews = ((IEnumerable)viewModelInfo.GetValue(viewModel)).Cast<Object>();
+                            var nestedViewBO = BusinessObject.CreateBO(nestBOMap.BusinessObject, nestBOMap.Model, viewModelType, typeof(TRepository));
+                            var list = BusinessObject.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
+                            var listAddMethod = list.GetType().GetMethod("Add");
+                            foreach (var nestedView in nestedViews)
+                            {
+                                nestBOMap.SetParameters(viewModel, nestedView);
+                                nestedViewBO.MapBOFunction(nestedView);
+                                listAddMethod.Invoke(list, new Object[] { nestedView });
+                            }
+
+                            viewModelInfo.SetValue(viewModel, list);
+                        }
+                        else if (viewModelInfo.PropertyType.IsClass)
+                        {
+                            var nestedView = viewModelInfo.GetValue(viewModel);
+                            var nestedViewBO = BusinessObject.CreateBO(nestBOMap.BusinessObject, nestBOMap.Model, viewModelInfo.PropertyType, typeof(TRepository));
                             nestBOMap.SetParameters(viewModel, nestedView);
                             nestedViewBO.MapBOFunction(nestedView);
-                            listAddMethod.Invoke(list, new Object[] { nestedView });
                         }
-
-                        viewModelInfo.SetValue(viewModel, list);
-                    }
-                    else if (viewModelInfo.PropertyType.IsClass)
-                    {
-                        var nestedView = viewModelInfo.GetValue(viewModel);
-                        var nestedViewBO = BusinessObject.CreateBO(nestBOMap.BusinessObject, nestBOMap.Model, viewModelInfo.PropertyType, typeof(TRepository));
-                        nestBOMap.SetParameters(viewModel, nestedView);
-                        nestedViewBO.MapBOFunction(nestedView);
                     }
                 }
-
+                catch (Exception ex)
+                {
+                    throw new Exception("Error Mapping Business Functions", ex);
+                }
             }
         }
 

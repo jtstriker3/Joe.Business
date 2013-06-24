@@ -82,10 +82,14 @@ namespace Joe.Business.Report
 
             }
 
+            var dynamicFilterObj = new TViewModel();
+            foreach (var filter in report.Filters)
+                filter.SetFilterValue(dynamicFilterObj);
+
             if (report.Single && !listOverride)
-                return bo.Get(false, report.SingleID.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries));
+                return bo.GetWithFilters(dynamicFilterObj, false, report.SingleID.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries));
             else
-                return bo.Get(setCrudOverride: false);
+                return bo.Get(setCrudOverride: false, dynamicFilter: dynamicFilterObj);
         }
 
         public virtual IEnumerable GetFilterValues<TRepository>(IReportFilter filter)
@@ -143,8 +147,8 @@ namespace Joe.Business.Report
         {
             get
             {
-                _filters = _filters ?? (ReportView != null ? 
-                    ReportView.GetCustomAttributes<ReportFilterAttribute>(true).OrderBy(rfa => rfa.Order).Select(filter => new ReportFilter(ReportView, filter)).ToList() 
+                _filters = _filters ?? (ReportView != null ?
+                    ReportView.GetCustomAttributes<ReportFilterAttribute>(true).OrderBy(rfa => rfa.Order).Select(filter => new ReportFilter(ReportView, filter)).ToList()
                     : null);
 
                 return _filters;

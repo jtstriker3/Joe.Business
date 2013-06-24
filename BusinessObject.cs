@@ -138,7 +138,7 @@ namespace Joe.Business
             if (businessObjectType.GetGenericArguments().Count() == 2)
                 bo = (IBusinessObject<TModel, TViewModel, TRepository>)CreateObject(businessObjectType.MakeGenericType(typeof(TViewModel), typeof(TRepository)));
             else if (businessObjectType.GetGenericArguments().Count() == 1)
-                bo = (IBusinessObject<TModel, TViewModel, TRepository>)CreateObject(businessObjectType.MakeGenericType(typeof(TViewModel)));
+                bo = (IBusinessObject<TModel, TViewModel, TRepository>)CreateObject(businessObjectType.MakeGenericType(typeof(TRepository)));
             else
                 bo = (IBusinessObject<TModel, TViewModel, TRepository>)CreateObject(businessObjectType.MakeGenericType(typeof(TModel), typeof(TViewModel), typeof(TRepository)));
 
@@ -195,7 +195,7 @@ namespace Joe.Business
             return security;
         }
 
-        public virtual TViewModel Create(TViewModel viewModel)
+        public virtual TViewModel Create(TViewModel viewModel, Object dynamicFilters = null)
         {
             try
             {
@@ -217,7 +217,7 @@ namespace Joe.Business
                 if (!this.Configuration.UseSecurity || this.Security.CanCreate(this.GetModel, viewModel))
                 {
                     this.Repository.SaveChanges();
-                    viewModel = model.MapDBView<TModel, TViewModel>();
+                    viewModel = model.Map<TModel, TViewModel>(dynamicFilters);
                 }
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
@@ -300,23 +300,32 @@ namespace Joe.Business
             return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapBusinessFunctionsForList, descending, null, orderBy);
         }
 
-        public virtual IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter = null, int? take = null, int? skip = null, Boolean setCrudOverride = true, Boolean mapBOFunctionsOverride = true, Boolean descending = false, params String[] orderBy)
+        public virtual IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter = null, int? take = null, int? skip = null, Boolean setCrudOverride = true, Boolean mapBOFunctionsOverride = true, Boolean descending = false, Object dyanmicFilter = null, params String[] orderBy)
         {
             int count;
-            return Get(out count, filter, take, skip, setCrudOverride, mapBOFunctionsOverride, descending, null, orderBy);
+            return Get(out count, filter, take, skip, setCrudOverride, mapBOFunctionsOverride, descending, null, dyanmicFilter, orderBy);
         }
 
         /// <summary>
         /// Get a list of ViewModels
         /// </summary>
         /// <returns>Returns a list of ViewModesl. If UseSecurity and SetCrud are set to true then the list will be filtered to only return results the user has access too.</returns>
-        public virtual IQueryable<TViewModel> Get(out int count, Expression<Func<TViewModel, Boolean>> filter = null, int? take = null, int? skip = null, Boolean setCrudOverride = true, Boolean mapBOFunctionsOverride = true, Boolean descending = false, String stringfilter = null, params String[] orderBy)
+        public virtual IQueryable<TViewModel> Get(out int count,
+            Expression<Func<TViewModel, Boolean>> filter = null,
+            int? take = null, int? skip = null,
+            Boolean setCrudOverride = true,
+            Boolean mapBOFunctionsOverride = true,
+            Boolean descending = false,
+            String stringfilter = null,
+            Object dyanmicFilters = null,
+            params String[] orderBy
+            )
         {
             IQueryable<TViewModel> viewModels;
             if (Configuration.GetListFromCache)
                 viewModels = StaticCacheHelper.GetCache<TViewModel>().AsQueryable();
             else
-                viewModels = this.Source.MapDBView<TModel, TViewModel>();
+                viewModels = this.Source.Map<TModel, TViewModel>(dyanmicFilters);
 
             if (filter != null)
                 viewModels = viewModels.Where(filter);
@@ -371,10 +380,15 @@ namespace Joe.Business
 
         public virtual TViewModel Get(params Object[] ids)
         {
-            return Get(true, ids);
+            return Get(null, true, ids);
         }
 
-        public virtual TViewModel Get(Boolean setCrud = true, params Object[] ids)
+        public virtual TViewModel GetWithFilters(Object dynamicFilters, params Object[] ids)
+        {
+            return Get(dynamicFilters, true, ids);
+        }
+
+        public virtual TViewModel Get(Object dyanmicFilters, Boolean setCrud, params Object[] ids)
         {
             try
             {
@@ -383,7 +397,7 @@ namespace Joe.Business
                 if (this.BeforeGet != null)
                     this.BeforeGet(this.Repository);
                 var model = this.Source.Find(this.GetTypedIDs(ids));
-                viewModel = model.MapDBView<TModel, TViewModel>();
+                viewModel = model.Map<TModel, TViewModel>(dyanmicFilters);
                 if (AfterMap != null)
                     AfterMap(model, viewModel, Repository);
                 if (ViewModelMapped != null)
@@ -411,7 +425,7 @@ namespace Joe.Business
             }
         }
 
-        public virtual TViewModel Update(TViewModel viewModel)
+        public virtual TViewModel Update(TViewModel viewModel, Object dyanmicFilters = null)
         {
             try
             {
@@ -425,7 +439,7 @@ namespace Joe.Business
                 if (this.BeforeUpdate != null)
                     this.BeforeUpdate(model, viewModel, Repository);
 
-                viewModel = model.MapDBView<TModel, TViewModel>();
+                viewModel = model.Map<TModel, TViewModel>(dyanmicFilters);
 
                 if (AfterMap != null)
                     AfterMap(model, viewModel, Repository);
@@ -458,7 +472,7 @@ namespace Joe.Business
             }
         }
 
-        public virtual IQueryable<TViewModel> Update(List<TViewModel> viewModelList)
+        public virtual IQueryable<TViewModel> Update(List<TViewModel> viewModelList, Object dynamicFilters = null)
         {
             try
             {
@@ -492,7 +506,7 @@ namespace Joe.Business
                 }
 
                 FlushViewModelCache();
-                var returnList = modelList.MapDBView<TModel, TViewModel>();
+                var returnList = modelList.Map<TModel, TViewModel>(dynamicFilters);
 
                 returnList.ForEach(vm =>
                 {
@@ -515,7 +529,7 @@ namespace Joe.Business
         {
             try
             {
-                var viewModel = this.Source.Find(this.GetTypedIDs(ids)).MapDBView<TModel, TViewModel>();
+                var viewModel = this.Source.Find(this.GetTypedIDs(ids)).Map<TModel, TViewModel>();
                 this.Delete(viewModel);
             }
             catch (Exception ex)
@@ -550,14 +564,14 @@ namespace Joe.Business
         }
 
         [Obsolete("Create new Business Object to insure all business rules are applied")]
-        public static IQueryable<TViewModel> QuickGet()
+        public static IQueryable<TViewModel> QuickGet(Object dynamicFilters = null)
         {
             var repository = new TRepository();
             var source = repository.GetIDbSet<TModel>();
 
             IQueryable<TViewModel> viewModels;
 
-            viewModels = source.MapDBView<TModel, TViewModel>();
+            viewModels = source.Map<TModel, TViewModel>(dynamicFilters);
             return viewModels;
         }
 
@@ -570,7 +584,7 @@ namespace Joe.Business
                 var source = repository.GetIDbSet<TModel>();
 
                 TViewModel viewModel;
-                viewModel = source.Find(BOExtentions.GetTypedIDs<TModel, TViewModel, TRepository>(ids)).MapDBView<TModel, TViewModel>();
+                viewModel = source.Find(BOExtentions.GetTypedIDs<TModel, TViewModel, TRepository>(ids)).Map<TModel, TViewModel>();
 
                 return viewModel;
             }
@@ -587,7 +601,7 @@ namespace Joe.Business
 
         public virtual TViewModel Default()
         {
-            return this.Source.Create().MapDBView<TModel, TViewModel>();
+            return this.Source.Create().Map<TModel, TViewModel>();
         }
 
         public override void MapBOFunction(Object viewModel, Boolean getModel = true)
@@ -607,6 +621,7 @@ namespace Joe.Business
                     var boMap = viewModelInfo.GetCustomAttributes(typeof(BOMappingAttribute), true).SingleOrDefault() as BOMappingAttribute;
                     var nestBOMap = viewModelInfo.GetCustomAttributes(typeof(NestedBOMappingAttribute), true).SingleOrDefault() as NestedBOMappingAttribute;
                     var allValuesMap = viewModelInfo.GetCustomAttributes(typeof(AllValuesAttribute), true).SingleOrDefault() as AllValuesAttribute;
+                    var dyanmicFilterss = viewModelInfo.GetCustomAttributes(typeof(DynamicFilterAttribute), true).SingleOrDefault() as DynamicFilterAttribute;
                     if (boMap != null && boMap.HasMethod)
                     {
                         viewModelInfo.SetValue(viewModel,
@@ -621,7 +636,18 @@ namespace Joe.Business
                             var allValuesBO = BusinessObject.CreateBO(allValuesMap.BusinessObject, allValuesMap.Model, viewModelType, typeof(TRepository));
 
                             viewModelInfo.SetValue(viewModel, allValuesBO.Get(allValuesMap.Filter));
-                            var list = BusinessObject.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
+                        }
+                        else throw new Exception("Property Must Implement IEnumerable<>");
+                    }
+                    if (dyanmicFilterss != null)
+                    {
+                        if (viewModelInfo.PropertyType.ImplementsIEnumerable())
+                        {
+                            var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
+                            var viewModelList = viewModelInfo.GetValue(viewModel) as IEnumerable;
+                            viewModelList = viewModelList.Filter(dyanmicFilterss.GetFilter(viewModel));
+
+                            viewModelInfo.SetValue(viewModel, viewModelList);
                         }
                         else throw new Exception("Property Must Implement IEnumerable<>");
                     }

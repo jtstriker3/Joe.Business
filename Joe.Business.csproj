@@ -42,15 +42,13 @@
     <Reference Include="Joe.Caching">
       <HintPath>packages\Joe.Caching.1.0.0\lib\net40\Joe.Caching.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.Init">
-      <HintPath>packages\Joe.Init.1.0.0.2\lib\net40\Joe.Init.dll</HintPath>
-    </Reference>
-    <Reference Include="Joe.Map">
-      <HintPath>packages\Joe.Map.1.0.1\lib\net40\Joe.Map.dll</HintPath>
+    <Reference Include="Joe.Map, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>packages\Joe.Map.1.0.2.4\lib\net45\Joe.Map.dll</HintPath>
     </Reference>
     <Reference Include="Joe.MapBack, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.MapBack.1.0.0\lib\net40\Joe.MapBack.dll</HintPath>
+      <HintPath>packages\Joe.MapBack.1.0.0.1\lib\net40\Joe.MapBack.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Reflection, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -58,7 +56,7 @@
     </Reference>
     <Reference Include="Joe.Security, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Security.1.0.1.1\lib\net40\Joe.Security.dll</HintPath>
+      <HintPath>packages\Joe.Security.1.0.1.6\lib\net40\Joe.Security.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -77,6 +75,7 @@
     <Compile Include="BusinessConfiguration.cs" />
     <Compile Include="BusinessObject.cs" />
     <Compile Include="Configuration.cs" />
+    <Compile Include="DynamicFilter.cs" />
     <Compile Include="Email.cs" />
     <Compile Include="IBusinessObject.cs" />
     <Compile Include="IEmail.cs" />

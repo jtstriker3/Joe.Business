@@ -157,7 +157,8 @@ namespace Joe.Business
 
         public AllValuesAttribute(Type businessObject, Type model)
         {
-
+            BusinessObject = businessObject;
+            Model = model;
         }
     }
 }

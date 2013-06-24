@@ -31,11 +31,12 @@ namespace Joe.Business
             var source = new TRepository().GetIQuery(cachedPair.Item1);
             var method = typeof(MapExtensions).GetMethods().Single(m => m.Name == "MapDBView"
                 && m.IsGenericMethod == true
-                && m.GetParameters().Single().ParameterType.IsGenericType == true
-                && m.GetParameters().Single().ParameterType.GetGenericTypeDefinition() == typeof(IQueryable<>)).MakeGenericMethod(new[] { cachedPair.Item1, cachedPair.Item2 });
+                && m.GetParameters().First().ParameterType.IsGenericType == true
+                && m.GetParameters().First().ParameterType.GetGenericTypeDefinition() == typeof(IQueryable<>)
+                ).MakeGenericMethod(new[] { cachedPair.Item1, cachedPair.Item2 });
 
             Expression ex = Expression.Call(method,
-                Expression.Constant(source, typeof(IQueryable<>).MakeGenericType(cachedPair.Item1)));
+                Expression.Constant(source, typeof(IQueryable<>).MakeGenericType(cachedPair.Item1)), Expression.Constant(null));
             LambdaExpression lambda = Expression.Lambda(Expression.Call(typeof(Enumerable), "ToList", new[] { cachedPair.Item2 }, ex));
             return lambda.Compile().DynamicInvoke();
         }

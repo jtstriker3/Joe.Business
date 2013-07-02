@@ -9,6 +9,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Collections;
 using Joe.MapBack;
+using System.ComponentModel.DataAnnotations;
+using System.Data.Entity.Validation;
 
 namespace Joe.Business
 {
@@ -236,6 +238,11 @@ namespace Joe.Business
             }
             catch (Exception ex)
             {
+                if (ex is ValidationException
+                    || ex is DbEntityValidationException
+                    || ex is DbUnexpectedValidationException)
+                    throw ex;
+
                 throw new Exception("Error Creating: " + typeof(TModel).Name, ex);
             }
         }
@@ -332,15 +339,6 @@ namespace Joe.Business
             if (!String.IsNullOrEmpty(stringfilter))
                 viewModels = viewModels.Filter(stringfilter);
             count = viewModels.Count();
-            if (orderBy.Count() > 0 && orderBy.First() != null)
-                if (!descending)
-                    viewModels = viewModels.OrderBy(orderBy);
-                else
-                    viewModels = viewModels.OrderByDescending(orderBy);
-            if (skip.HasValue)
-                viewModels = viewModels.Skip(skip.Value);
-            if (take.HasValue)
-                viewModels = viewModels.Take(take.Value);
 
             if (this.Configuration.SetCrud && setCrudOverride)
             {
@@ -355,6 +353,16 @@ namespace Joe.Business
                     count = viewModels.Count();
                 }
             }
+
+            if (orderBy.Count() > 0 && orderBy.First() != null)
+                if (!descending)
+                    viewModels = viewModels.OrderBy(orderBy);
+                else
+                    viewModels = viewModels.OrderByDescending(orderBy);
+            if (skip.HasValue)
+                viewModels = viewModels.Skip(skip.Value);
+            if (take.HasValue)
+                viewModels = viewModels.Take(take.Value);
 
             if (ViewModelListMapped != null)
                 viewModels = ViewModelListMapped(this, new ViewModelListEventArgs<TViewModel>(viewModels));
@@ -468,6 +476,11 @@ namespace Joe.Business
             }
             catch (Exception ex)
             {
+                if (ex is ValidationException
+                    || ex is DbEntityValidationException
+                    || ex is DbUnexpectedValidationException)
+                    throw ex;
+
                 throw new Exception("Error Updating: " + typeof(TModel).Name, ex);
             }
         }
@@ -521,6 +534,11 @@ namespace Joe.Business
             }
             catch (Exception ex)
             {
+                if (ex is ValidationException
+                    || ex is DbEntityValidationException
+                    || ex is DbUnexpectedValidationException)
+                    throw ex;
+
                 throw new Exception("Error Updating: " + typeof(TModel).Name, ex);
             }
         }
@@ -534,6 +552,9 @@ namespace Joe.Business
             }
             catch (Exception ex)
             {
+                if (ex is ValidationException)
+                    throw ex;
+
                 throw new Exception("Error Deleting: " + typeof(TModel).Name, ex);
             }
         }
@@ -559,6 +580,9 @@ namespace Joe.Business
             }
             catch (Exception ex)
             {
+                if (ex is ValidationException)
+                    throw ex;
+
                 throw new Exception("Error Deleting: " + typeof(TModel).Name, ex);
             }
         }

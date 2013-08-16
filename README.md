@@ -129,7 +129,7 @@ public class PersonView
 }
 ```
 
-__AllValues__ - 'AllValues(Type repoToInvoke, Type model'/'AllValues(Type Model)' This lets you map a property in your view
+__AllValues__ - `AllValues(Type repoToInvoke, Type model'/'AllValues(Type Model)` This lets you map a property in your view
 to All the Values of another Entity Object Lets assume that the Person Entity we have been working with has a One To Many
 relation with Jobs. Our Person Entity might look like such:
 

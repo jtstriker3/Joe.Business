@@ -21,7 +21,7 @@ namespace Joe.Business.Report
         [ViewMapping(ReadOnly = true)]
         Type ListView { get; }
         [ViewMapping(ReadOnly = true)]
-        Type ListViewBO { get; }
+        Type ListViewRepo { get; }
         [ViewMapping(ReadOnly = true)]
         Type Model { get; }
         [ViewMapping(ReadOnly = true)]

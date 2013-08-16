@@ -18,7 +18,7 @@ namespace Joe.Business.Report
         /// </summary>
         public String Operator { get; set; }
         public Type ListView { get; private set; }
-        public Type ListViewBO { get; private set; }
+        public Type ListViewRepo { get; private set; }
         public Type Model { get; private set; }
         public IEnumerable<String> DisplayProperties { get; private set; }
         public String ValueProperty { get; set; }
@@ -27,7 +27,7 @@ namespace Joe.Business.Report
         {
             get
             {
-                return ListView != null && ListViewBO != null;
+                return ListView != null && ListViewRepo != null;
             }
         }
         public Boolean IsListFilter
@@ -38,11 +38,11 @@ namespace Joe.Business.Report
             }
         }
 
-        public ReportFilterAttribute(int order, String filterPropertyName, Type listView, Type listViewBO, Type model, params String[] displayProperties)
+        public ReportFilterAttribute(int order, String filterPropertyName, Type listView, Type listViewRepo, Type model, params String[] displayProperties)
         {
             FilterPropertyName = filterPropertyName;
             ListView = listView;
-            ListViewBO = listViewBO;
+            ListViewRepo = listViewRepo;
             Model = model;
             DisplayProperties = displayProperties;
             Order = order;

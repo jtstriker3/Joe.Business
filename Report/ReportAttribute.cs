@@ -10,7 +10,7 @@ namespace Joe.Business.Report
     {
         public String Name { get; private set; }
         public String Description { get; private set; }
-        public Type BusinessObject { get; private set; }
+        public Type Repository { get; private set; }
         public Type Model { get; private set; }
         public Type ListView { get; set; }
         public IEnumerable<String> ListViewDisplayProperties { get; private set; }
@@ -22,10 +22,10 @@ namespace Joe.Business.Report
             }
         }
 
-        public ReportAttribute(String name, Type businessObject, Type model, String description, params String[] listViewDisplayProperties)
+        public ReportAttribute(String name, Type Repository, Type model, String description, params String[] listViewDisplayProperties)
         {
             Name = name;
-            BusinessObject = businessObject;
+            Repository = Repository;
             Model = model;
             ListViewDisplayProperties = listViewDisplayProperties;
             Description = description;

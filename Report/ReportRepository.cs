@@ -53,17 +53,17 @@ namespace Joe.Business.Report
             where TViewModel : class, new()
         {
 
-            IBusinessObject<TModel, TViewModel, TRepository> bo = BusinessObject<TModel, TViewModel, TRepository>.CreateBO(report.ReportBO);
+            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(report.ReportRepo);
 
             if (!listOverride)
             {
-                bo.ViewModelMapped += (object sender, ViewModelEventArgs<TViewModel> viewModelEventArgs) =>
+                repo.ViewModelMapped += (object sender, ViewModelEventArgs<TViewModel> viewModelEventArgs) =>
                 {
                     foreach (var filter in report.Filters)
                         filter.SetFilterValue(viewModelEventArgs.ViewModel);
                 };
 
-                bo.ViewModelListMapped += (object sender, ViewModelListEventArgs<TViewModel> viewModelListEventArgs) =>
+                repo.ViewModelListMapped += (object sender, ViewModelListEventArgs<TViewModel> viewModelListEventArgs) =>
                 {
                     var filtersNotAppliedToList = report.Filters.Where(filter => !filter.IsListFilter);
                     var filtersAppliedToList = report.Filters.Where(filter => filter.IsListFilter);
@@ -87,9 +87,9 @@ namespace Joe.Business.Report
                 filter.SetFilterValue(dynamicFilterObj);
 
             if (report.Single && !listOverride)
-                return bo.GetWithFilters(dynamicFilterObj, false, report.SingleID.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries));
+                return repo.GetWithFilters(dynamicFilterObj, false, report.SingleID.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries));
             else
-                return bo.Get(setCrudOverride: false, dynamicFilter: dynamicFilterObj);
+                return repo.Get(setCrudOverride: false, dynamicFilter: dynamicFilterObj);
         }
 
         public virtual IEnumerable GetFilterValues<TRepository>(IReportFilter filter)
@@ -105,9 +105,9 @@ namespace Joe.Business.Report
             where TViewModel : class, new()
         {
 
-            IBusinessObject<TModel, TViewModel, TRepository> bo = BusinessObject<TModel, TViewModel, TRepository>.CreateBO(filter.ListViewBO);
+            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(filter.ListViewRepo);
 
-            return bo.Get(setCrudOverride: false);
+            return repo.Get(setCrudOverride: false);
         }
 
     }
@@ -118,7 +118,7 @@ namespace Joe.Business.Report
         public String Name { get; set; }
         public String SingleID { get; set; }
         public String Description { get; private set; }
-        public Type ReportBO { get; private set; }
+        public Type ReportRepo { get; private set; }
         public Boolean Single { get; private set; }
         public Type Model { get; private set; }
         public Type ListView { get; private set; }
@@ -134,7 +134,7 @@ namespace Joe.Business.Report
             var reportAttribute = reportView.GetCustomAttribute<ReportAttribute>();
             Name = reportAttribute.Name;
             Description = reportAttribute.Description;
-            ReportBO = reportAttribute.BusinessObject;
+            ReportRepo = reportAttribute.Repository;
             Single = reportAttribute.Single;
             Model = reportAttribute.Model;
             ListView = reportAttribute.ListView;
@@ -170,7 +170,7 @@ namespace Joe.Business.Report
         public String PropertyName { get; set; }
         private PropertyInfo Info { get; set; }
         public Type ListView { get; private set; }
-        public Type ListViewBO { get; private set; }
+        public Type ListViewRepo { get; private set; }
         public Type Model { get; private set; }
         public IEnumerable<String> DisplayProperties { get; private set; }
         public String ValueProperty { get; set; }
@@ -192,7 +192,7 @@ namespace Joe.Business.Report
             Info = Joe.Reflection.ReflectionHelper.GetEvalPropertyInfo(ReportViewType, ReportFilterAttribute.FilterPropertyName);
             PropertyName = Info.Name;
             ListView = reportFilterAttribute.ListView;
-            ListViewBO = reportFilterAttribute.ListViewBO;
+            ListViewRepo = reportFilterAttribute.ListViewRepo;
             Model = reportFilterAttribute.Model;
             DisplayProperties = reportFilterAttribute.DisplayProperties;
             ValueProperty = reportFilterAttribute.ValueProperty;

@@ -21,14 +21,14 @@ namespace Joe.Business
         /// <summary>
         /// Wheather or not to set BOProperties for Lists
         /// </summary>
-        public Boolean MapBusinessFunctionsForList { get; set; }
+        public Boolean MapRepositoryFunctionsForList { get; set; }
         public Type SecurityType { get; set; }
         public Type DefualtSecurityType { get; set; }
         public BusinessConfigurationAttribute()
         {
             UseSecurity = true;
             SetCrud = true;
-            MapBusinessFunctionsForList = true;
+            MapRepositoryFunctionsForList = true;
         }
     }
 }

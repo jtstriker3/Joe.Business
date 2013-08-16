@@ -7,7 +7,7 @@ namespace Joe.Business
 {
     /// <summary>
     /// This is for applying dynamic filters
-    /// This will be called as a BO Mapping
+    /// This will be called as a Repo Mapping
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
     public class DynamicFilterAttribute : Attribute

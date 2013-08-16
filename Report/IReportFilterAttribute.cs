@@ -8,7 +8,7 @@ namespace Joe.Business.Report
         bool IsListFilter { get; }
         bool IsValueFilter { get; }
         Type ListView { get; }
-        Type ListViewBO { get; }
+        Type ListViewRepo { get; }
         Type Model { get; }
         string Operator { get; set; }
         string ValueProperty { get; set; }

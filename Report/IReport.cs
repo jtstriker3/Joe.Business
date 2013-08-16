@@ -14,7 +14,7 @@ namespace Joe.Business.Report
         Type Model { get; }
         string Name { get; set; }
         [ViewMapping(ReadOnly = true)]
-        Type ReportBO { get; }
+        Type ReportRepo { get; }
         [ViewMapping(ReadOnly = true)]
         Type ReportView { get; }
         bool Single { get; }

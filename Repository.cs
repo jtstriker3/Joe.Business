@@ -15,14 +15,14 @@ using System.Data.Entity.Validation;
 namespace Joe.Business
 {
 
-    public abstract class BusinessObject : IBusinessObject
+    public abstract class Repository : IRepository
     {
         public abstract void SetCrud(Object viewModel, Boolean listMode = false);
-        public abstract void MapBOFunction(Object viewModel, Boolean getModel = true);
+        public abstract void MapRepoFunction(Object viewModel, Boolean getModel = true);
         public abstract IEnumerable Get(String filter = null);
         public static IEmailProvider EmailProvider { get; set; }
         public static ISecurityFactory _securityFactory;
-        public static ISecurityFactory BOSecurityFactory
+        public static ISecurityFactory RepoSecurityFactory
         {
             get
             {
@@ -39,27 +39,27 @@ namespace Joe.Business
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="businessObjectType">Must Already Contain generic Parameters</param>
+        /// <param name="RepositoryType">Must Already Contain generic Parameters</param>
         /// <returns></returns>
-        public static IBusinessObject CreateBO(Type businessObjectType)
+        public static IRepository CreateRepo(Type RepositoryType)
         {
-            var boInterface = businessObjectType.GetInterface("IBusinessObject`3");
-            var model = boInterface.GetGenericArguments().First();
-            var viewModel = boInterface.GetGenericArguments().ToArray()[1];
-            var repository = boInterface.GetGenericArguments().ToArray()[2];
-            var genericBO = typeof(BusinessObject<,,>).MakeGenericType(model, viewModel, repository);
-            var method = genericBO.GetMethod("CreateBO");
-            var bo = (IBusinessObject)method.Invoke(null, new Object[] { businessObjectType });
+            var repoInterface = RepositoryType.GetInterface("IRepository`3");
+            var model = repoInterface.GetGenericArguments().First();
+            var viewModel = repoInterface.GetGenericArguments().ToArray()[1];
+            var repository = repoInterface.GetGenericArguments().ToArray()[2];
+            var genericRepo = typeof(Repository<,,>).MakeGenericType(model, viewModel, repository);
+            var method = genericRepo.GetMethod("CreateRepo");
+            var repo = (IRepository)method.Invoke(null, new Object[] { RepositoryType });
 
-            return bo;
+            return repo;
         }
-        public static IBusinessObject CreateBO(Type businessObjectType, Type model, Type viewModel, Type repository)
+        public static IRepository CreateRepo(Type RepositoryType, Type model, Type viewModel, Type repository)
         {
-            var genericBO = typeof(BusinessObject<,,>).MakeGenericType(model, viewModel, repository);
-            var method = genericBO.GetMethod("CreateBO");
-            var bo = (IBusinessObject)method.Invoke(null, new Object[] { businessObjectType });
+            var genericRepo = typeof(Repository<,,>).MakeGenericType(model, viewModel, repository);
+            var method = genericRepo.GetMethod("CreateRepo");
+            var repo = (IRepository)method.Invoke(null, new Object[] { RepositoryType });
 
-            return bo;
+            return repo;
         }
         protected static Object CreateObject(Type type)
         {
@@ -73,28 +73,28 @@ namespace Joe.Business
     }
 
 
-    public abstract class BusinessObject<TModel, TViewModel, TRepository> : BusinessObject, IBusinessObject<TModel, TViewModel, TRepository>
+    public abstract class Repository<TModel, TViewModel, TContext> : Repository, IRepository<TModel, TViewModel, TContext>
         where TModel : class, new()
         where TViewModel : class, new()
-        where TRepository : class, IDBViewContext, new()
+        where TContext : class, IDBViewContext, new()
     {
         private IDbSet<TModel> _source;
         protected virtual IDbSet<TModel> Source
         {
             get
             {
-                return _source ?? this.Repository.GetIDbSet<TModel>();
+                return _source ?? this.Context.GetIDbSet<TModel>();
             }
             set { _source = value; }
         }
         protected BusinessConfigurationAttribute Configuration { get; set; }
         protected virtual ISecurity<TModel> Security { get; set; }
-        private TRepository _repository;
-        protected TRepository Repository
+        private TContext _repository;
+        protected TContext Context
         {
             get
             {
-                _repository = _repository ?? new TRepository();
+                _repository = _repository ?? new TContext();
                 return _repository;
             }
             set
@@ -104,11 +104,11 @@ namespace Joe.Business
         }
 
         #region Delegates
-        protected delegate void MapDelegate(TModel model, TViewModel viewModel, TRepository repository);
-        protected delegate void SaveDelegate(TModel model, TViewModel viewModel, TRepository repository);
-        protected delegate void AfterGetDelegate(TViewModel viewModel, TRepository repository);
-        protected delegate void BeforeGetDelegate(TRepository repository);
-        protected delegate IQueryable<TViewModel> GetListDelegate(IQueryable<TViewModel> viewModels, TRepository repository);
+        protected delegate void MapDelegate(TModel model, TViewModel viewModel, TContext repository);
+        protected delegate void SaveDelegate(TModel model, TViewModel viewModel, TContext repository);
+        protected delegate void AfterGetDelegate(TViewModel viewModel, TContext repository);
+        protected delegate void BeforeGetDelegate(TContext repository);
+        protected delegate IQueryable<TViewModel> GetListDelegate(IQueryable<TViewModel> viewModels, TContext repository);
         protected SaveDelegate BeforeUpdate;
         protected SaveDelegate BeforeDelete;
         protected SaveDelegate BeforeCreate;
@@ -134,39 +134,39 @@ namespace Joe.Business
         public event ViewModelListEvent ViewModelListMapped;
         #endregion
 
-        public new static IBusinessObject<TModel, TViewModel, TRepository> CreateBO(Type businessObjectType)
+        public new static IRepository<TModel, TViewModel, TContext> CreateRepo(Type RepositoryType)
         {
-            IBusinessObject<TModel, TViewModel, TRepository> bo;
-            if (businessObjectType.GetGenericArguments().Count() == 2)
-                bo = (IBusinessObject<TModel, TViewModel, TRepository>)CreateObject(businessObjectType.MakeGenericType(typeof(TViewModel), typeof(TRepository)));
-            else if (businessObjectType.GetGenericArguments().Count() == 1)
-                bo = (IBusinessObject<TModel, TViewModel, TRepository>)CreateObject(businessObjectType.MakeGenericType(typeof(TRepository)));
+            IRepository<TModel, TViewModel, TContext> repo;
+            if (RepositoryType.GetGenericArguments().Count() == 2)
+                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel), typeof(TContext)));
+            else if (RepositoryType.GetGenericArguments().Count() == 1)
+                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TContext)));
             else
-                bo = (IBusinessObject<TModel, TViewModel, TRepository>)CreateObject(businessObjectType.MakeGenericType(typeof(TModel), typeof(TViewModel), typeof(TRepository)));
+                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TModel), typeof(TViewModel), typeof(TContext)));
 
-            return bo;
+            return repo;
         }
 
-        public BusinessObject(ISecurity<TModel> security, TRepository repositiory)
+        public Repository(ISecurity<TModel> security, TContext repositiory)
         {
             Configuration = (BusinessConfigurationAttribute)GetType().GetCustomAttributes(typeof(BusinessConfigurationAttribute), true).SingleOrDefault() ?? new BusinessConfigurationAttribute();
-            Repository = repositiory;
+            Context = repositiory;
             Security = security ?? this.TryGetSecurityForModel();
         }
 
-        public BusinessObject(ISecurity<TModel> security)
+        public Repository(ISecurity<TModel> security)
             : this(security, null)
         {
 
         }
 
-        public BusinessObject(TRepository repositiory)
+        public Repository(TContext repositiory)
             : this(new Security<TModel>(), repositiory)
         {
 
         }
 
-        public BusinessObject() :
+        public Repository() :
             this(null, null)
         {
 
@@ -183,7 +183,7 @@ namespace Joe.Business
                 return (ISecurity<TModel>)Expression.Lambda(Expression.Block(Expression.New(securityType))).Compile().DynamicInvoke();
             }
 
-            var security = BOSecurityFactory.Create<TModel>();
+            var security = RepoSecurityFactory.Create<TModel>();
             if (security == null)
             {
                 if (Configuration.DefualtSecurityType != null)
@@ -208,17 +208,17 @@ namespace Joe.Business
 
 
                 if (this.BeforeMapBack != null)
-                    this.BeforeMapBack(model, viewModel, Repository);
+                    this.BeforeMapBack(model, viewModel, Context);
 
-                model.MapBack(viewModel, this.Repository);
+                model.MapBack(viewModel, this.Context);
                 model = this.Source.Add(model);
 
                 if (this.BeforeCreate != null)
-                    this.BeforeCreate(model, viewModel, Repository);
+                    this.BeforeCreate(model, viewModel, Context);
 
                 if (!this.Configuration.UseSecurity || this.Security.CanCreate(this.GetModel, viewModel))
                 {
-                    this.Repository.SaveChanges();
+                    this.Context.SaveChanges();
                     viewModel = model.Map<TModel, TViewModel>(dynamicFilters);
                 }
                 else
@@ -229,7 +229,7 @@ namespace Joe.Business
 
 
                 if (this.AfterCreate != null)
-                    this.AfterCreate(model, viewModel, Repository);
+                    this.AfterCreate(model, viewModel, Context);
                 if (this.ViewModelCreated != null)
                     this.ViewModelCreated(this, new ViewModelEventArgs<TViewModel>(viewModel));
 
@@ -288,29 +288,29 @@ namespace Joe.Business
         public virtual IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter, int? take, int? skip, params String[] orderBy)
         {
             int count;
-            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapBusinessFunctionsForList, false, null, orderBy);
+            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapRepositoryFunctionsForList, false, null, orderBy);
         }
 
         public IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter, int? take, int? skip, Boolean descending, params String[] orderBy)
         {
             int count;
-            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapBusinessFunctionsForList, descending, null, orderBy);
+            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapRepositoryFunctionsForList, descending, null, orderBy);
         }
 
         public virtual IQueryable<TViewModel> Get(out int count, Expression<Func<TViewModel, Boolean>> filter, int? take, int? skip, params String[] orderBy)
         {
-            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapBusinessFunctionsForList, false, null, orderBy);
+            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapRepositoryFunctionsForList, false, null, orderBy);
         }
 
         public IQueryable<TViewModel> Get(out int count, Expression<Func<TViewModel, Boolean>> filter, int? take, int? skip, Boolean descending, params String[] orderBy)
         {
-            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapBusinessFunctionsForList, descending, null, orderBy);
+            return Get(out count, filter, take, skip, this.Configuration.SetCrud, this.Configuration.MapRepositoryFunctionsForList, descending, null, orderBy);
         }
 
-        public virtual IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter = null, int? take = null, int? skip = null, Boolean setCrudOverride = true, Boolean mapBOFunctionsOverride = true, Boolean descending = false, Object dyanmicFilter = null, params String[] orderBy)
+        public virtual IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter = null, int? take = null, int? skip = null, Boolean setCrudOverride = true, Boolean mapRepoFunctionsOverride = true, Boolean descending = false, Object dyanmicFilter = null, params String[] orderBy)
         {
             int count;
-            return Get(out count, filter, take, skip, setCrudOverride, mapBOFunctionsOverride, descending, null, dyanmicFilter, orderBy);
+            return Get(out count, filter, take, skip, setCrudOverride, mapRepoFunctionsOverride, descending, null, dyanmicFilter, orderBy);
         }
 
         /// <summary>
@@ -321,7 +321,7 @@ namespace Joe.Business
             Expression<Func<TViewModel, Boolean>> filter = null,
             int? take = null, int? skip = null,
             Boolean setCrudOverride = true,
-            Boolean mapBOFunctionsOverride = true,
+            Boolean mapRepoFunctionsOverride = true,
             Boolean descending = false,
             String stringfilter = null,
             Object dyanmicFilters = null,
@@ -342,14 +342,13 @@ namespace Joe.Business
 
             if (this.Configuration.SetCrud && setCrudOverride)
             {
-                if (!Configuration.GetListFromCache)
-                    viewModels = viewModels.ToList().AsQueryable();
+                var viewModelList = viewModels.ToList();
 
                 this.SetCrud(viewModels, this.ImplementsICrud, true);
 
                 if (this.Configuration.UseSecurity)
                 {
-                    viewModels = viewModels.Where(vm => (Boolean)typeof(TViewModel).GetProperty("CanRead").GetValue(vm, null));
+                    viewModels = viewModelList.Where(vm => this.Security.CanRead(this.GetModel, vm)).AsQueryable();
                     count = viewModels.Count();
                 }
             }
@@ -367,11 +366,11 @@ namespace Joe.Business
             if (ViewModelListMapped != null)
                 viewModels = ViewModelListMapped(this, new ViewModelListEventArgs<TViewModel>(viewModels));
 
-            if (this.Configuration.MapBusinessFunctionsForList && mapBOFunctionsOverride)
-                viewModels.ForEach(vm => this.MapBOFunction(vm));
+            if (this.Configuration.MapRepositoryFunctionsForList && mapRepoFunctionsOverride)
+                viewModels.ForEach(vm => this.MapRepoFunction(vm));
 
             if (this.BeforeReturnList != null)
-                viewModels = this.BeforeReturnList(viewModels, this.Repository);
+                viewModels = this.BeforeReturnList(viewModels, this.Context);
             if (this.ViewModelListRetrieved != null)
                 viewModels = ViewModelListRetrieved(this, new ViewModelListEventArgs<TViewModel>(viewModels));
 
@@ -381,7 +380,7 @@ namespace Joe.Business
         public override IEnumerable Get(string filter = null)
         {
             int count = 0;
-            return this.Get(out count, stringfilter: filter, setCrudOverride: false, mapBOFunctionsOverride: false);
+            return this.Get(out count, stringfilter: filter, setCrudOverride: false, mapRepoFunctionsOverride: false);
         }
 
         #endregion
@@ -403,21 +402,21 @@ namespace Joe.Business
                 TViewModel viewModel;
 
                 if (this.BeforeGet != null)
-                    this.BeforeGet(this.Repository);
+                    this.BeforeGet(this.Context);
                 var model = this.Source.Find(this.GetTypedIDs(ids));
                 viewModel = model.Map<TModel, TViewModel>(dyanmicFilters);
                 if (AfterMap != null)
-                    AfterMap(model, viewModel, Repository);
+                    AfterMap(model, viewModel, Context);
                 if (ViewModelMapped != null)
                     ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(viewModel));
 
-                this.MapBOFunction(viewModel);
+                this.MapRepoFunction(viewModel);
 
                 if (this.Configuration.SetCrud && setCrud)
                     this.SetCrud(viewModel, this.ImplementsICrud);
 
                 if (this.AfterGet != null)
-                    this.AfterGet(viewModel, this.Repository);
+                    this.AfterGet(viewModel, this.Context);
                 if (!this.Configuration.UseSecurity || this.Security.CanRead(this.GetModel, viewModel))
                 {
                     if (this.ViewModelRetrieved != null)
@@ -440,25 +439,25 @@ namespace Joe.Business
                 TModel model = this.Source.WhereVM(viewModel);
 
                 if (this.BeforeMapBack != null)
-                    this.BeforeMapBack(model, viewModel, Repository);
+                    this.BeforeMapBack(model, viewModel, Context);
 
-                model.MapBack(viewModel, this.Repository);
+                model.MapBack(viewModel, this.Context);
 
                 if (this.BeforeUpdate != null)
-                    this.BeforeUpdate(model, viewModel, Repository);
+                    this.BeforeUpdate(model, viewModel, Context);
 
                 viewModel = model.Map<TModel, TViewModel>(dyanmicFilters);
 
                 if (AfterMap != null)
-                    AfterMap(model, viewModel, Repository);
+                    AfterMap(model, viewModel, Context);
                 if (ViewModelMapped != null)
                     ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(viewModel));
 
-                this.MapBOFunction(viewModel);
+                this.MapRepoFunction(viewModel);
 
                 if (!this.Configuration.UseSecurity || this.Security.CanUpdate(this.GetModel, viewModel))
                 {
-                    this.Repository.SaveChanges();
+                    this.Context.SaveChanges();
                 }
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
@@ -467,7 +466,7 @@ namespace Joe.Business
                     this.SetCrud(viewModel, this.ImplementsICrud);
 
                 if (this.AfterUpdate != null)
-                    this.AfterUpdate(model, viewModel, Repository);
+                    this.AfterUpdate(model, viewModel, Context);
                 if (this.ViewModelUpdated != null)
                     ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(viewModel));
 
@@ -492,20 +491,20 @@ namespace Joe.Business
                 foreach (var viewModel in viewModelList)
                 {
                     if (this.BeforeMapBack != null)
-                        this.BeforeMapBack(this.Source.WhereVM(viewModel), viewModel, Repository);
+                        this.BeforeMapBack(this.Source.WhereVM(viewModel), viewModel, Context);
                 }
 
-                var modelList = this.Source.MapBack(viewModelList, this.Repository).AsQueryable();
+                var modelList = this.Source.MapBack(viewModelList, this.Context).AsQueryable();
 
                 foreach (var viewModel in viewModelList)
                 {
                     var model = modelList.WhereVM(viewModel);
                     if (this.BeforeUpdate != null)
-                        this.BeforeUpdate(model, viewModel, Repository);
+                        this.BeforeUpdate(model, viewModel, Context);
                     if (this.Configuration.UseSecurity && !this.Security.CanUpdate(this.GetModel, viewModel))
                         throw new System.Security.SecurityException("Access to update denied.");
                 }
-                this.Repository.SaveChanges();
+                this.Context.SaveChanges();
 
                 if (this.Configuration.SetCrud)
                     this.SetCrud(viewModelList, this.ImplementsICrud);
@@ -513,7 +512,7 @@ namespace Joe.Business
                 foreach (var viewModel in viewModelList)
                 {
                     if (this.AfterUpdate != null)
-                        this.AfterUpdate(modelList.WhereVM(viewModel), viewModel, Repository);
+                        this.AfterUpdate(modelList.WhereVM(viewModel), viewModel, Context);
                     if (this.ViewModelUpdated != null)
                         this.ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(viewModel));
                 }
@@ -524,11 +523,11 @@ namespace Joe.Business
                 returnList.ForEach(vm =>
                 {
                     if (AfterMap != null)
-                        AfterMap(modelList.WhereVM(vm), vm, Repository);
+                        AfterMap(modelList.WhereVM(vm), vm, Context);
                     if (ViewModelMapped != null)
                         ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(vm));
 
-                    this.MapBOFunction(vm);
+                    this.MapRepoFunction(vm);
                 });
                 return returnList;
             }
@@ -566,14 +565,14 @@ namespace Joe.Business
 
                 TModel model = Source.WhereVM(viewModel);
                 if (this.BeforeDelete != null)
-                    this.BeforeDelete(model, viewModel, Repository);
+                    this.BeforeDelete(model, viewModel, Context);
                 this.Source.Remove(model);
                 if (!this.Configuration.UseSecurity || this.Security.CanDelete(this.GetModel, viewModel))
-                    this.Repository.SaveChanges();
+                    this.Context.SaveChanges();
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
                 if (this.AfterDelete != null)
-                    this.AfterDelete(model, viewModel, Repository);
+                    this.AfterDelete(model, viewModel, Context);
                 if (this.ViewModelDeleted != null)
                     this.ViewModelDeleted(this, new ViewModelEventArgs<TViewModel>(viewModel));
                 FlushViewModelCache();
@@ -590,7 +589,7 @@ namespace Joe.Business
         [Obsolete("Create new Business Object to insure all business rules are applied")]
         public static IQueryable<TViewModel> QuickGet(Object dynamicFilters = null)
         {
-            var repository = new TRepository();
+            var repository = new TContext();
             var source = repository.GetIDbSet<TModel>();
 
             IQueryable<TViewModel> viewModels;
@@ -604,11 +603,11 @@ namespace Joe.Business
         {
             try
             {
-                var repository = new TRepository();
+                var repository = new TContext();
                 var source = repository.GetIDbSet<TModel>();
 
                 TViewModel viewModel;
-                viewModel = source.Find(BOExtentions.GetTypedIDs<TModel, TViewModel, TRepository>(ids)).Map<TModel, TViewModel>();
+                viewModel = source.Find(RepoExtentions.GetTypedIDs<TModel, TViewModel, TContext>(ids)).Map<TModel, TViewModel>();
 
                 return viewModel;
             }
@@ -628,28 +627,28 @@ namespace Joe.Business
             return this.Source.Create().Map<TModel, TViewModel>();
         }
 
-        public override void MapBOFunction(Object viewModel, Boolean getModel = true)
+        public override void MapRepoFunction(Object viewModel, Boolean getModel = true)
         {
             if (typeof(TViewModel).IsAssignableFrom(viewModel.GetType()))
-                this.MapBOFunction((TViewModel)viewModel, getModel);
+                this.MapRepoFunction((TViewModel)viewModel, getModel);
             else
                 throw new Exception("The Object passed in must be derived from TViewModel");
         }
 
-        public void MapBOFunction(TViewModel viewModel, Boolean getModel = true)
+        public void MapRepoFunction(TViewModel viewModel, Boolean getModel = true)
         {
             foreach (PropertyInfo viewModelInfo in viewModel.GetType().GetProperties())
             {
                 try
                 {
-                    var boMap = viewModelInfo.GetCustomAttributes(typeof(BOMappingAttribute), true).SingleOrDefault() as BOMappingAttribute;
-                    var nestBOMap = viewModelInfo.GetCustomAttributes(typeof(NestedBOMappingAttribute), true).SingleOrDefault() as NestedBOMappingAttribute;
+                    var repoMap = viewModelInfo.GetCustomAttributes(typeof(RepoMappingAttribute), true).SingleOrDefault() as RepoMappingAttribute;
+                    var nestRepoMap = viewModelInfo.GetCustomAttributes(typeof(NestedRepoMappingAttribute), true).SingleOrDefault() as NestedRepoMappingAttribute;
                     var allValuesMap = viewModelInfo.GetCustomAttributes(typeof(AllValuesAttribute), true).SingleOrDefault() as AllValuesAttribute;
                     var dyanmicFilterss = viewModelInfo.GetCustomAttributes(typeof(DynamicFilterAttribute), true).SingleOrDefault() as DynamicFilterAttribute;
-                    if (boMap != null && boMap.HasMethod)
+                    if (repoMap != null && repoMap.HasMethod)
                     {
                         viewModelInfo.SetValue(viewModel,
-                            boMap.GetMethodInfo(this, viewModel, typeof(TModel)).Invoke(this, boMap.GetParameters(viewModel,
+                            repoMap.GetMethodInfo(this, viewModel, typeof(TModel)).Invoke(this, repoMap.GetParameters(viewModel,
                             getModel ? this.GetModel : (Func<TViewModel, TModel>)null).ToArray()), null);
                     }
                     if (allValuesMap != null)
@@ -657,9 +656,16 @@ namespace Joe.Business
                         if (viewModelInfo.PropertyType.ImplementsIEnumerable())
                         {
                             var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
-                            var allValuesBO = BusinessObject.CreateBO(allValuesMap.BusinessObject, allValuesMap.Model, viewModelType, typeof(TRepository));
-
-                            viewModelInfo.SetValue(viewModel, allValuesBO.Get(allValuesMap.Filter));
+                            if (allValuesMap.Repository != null)
+                            {
+                                var allValuesRepo = Repository.CreateRepo(allValuesMap.Repository, allValuesMap.Model, viewModelType, typeof(TContext));
+                                viewModelInfo.SetValue(viewModel, allValuesRepo.Get(allValuesMap.Filter));
+                            }
+                            else
+                            {
+                               var allValuesList = this.Context.GetIQuery(allValuesMap.Model).Map(viewModelType).Filter(allValuesMap.Filter);
+                               viewModelInfo.SetValue(viewModel, allValuesList);
+                            }
                         }
                         else throw new Exception("Property Must Implement IEnumerable<>");
                     }
@@ -675,19 +681,19 @@ namespace Joe.Business
                         }
                         else throw new Exception("Property Must Implement IEnumerable<>");
                     }
-                    if (nestBOMap != null)
+                    if (nestRepoMap != null)
                     {
                         if (viewModelInfo.PropertyType.ImplementsIEnumerable())
                         {
                             var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
                             var nestedViews = ((IEnumerable)viewModelInfo.GetValue(viewModel)).Cast<Object>();
-                            var nestedViewBO = BusinessObject.CreateBO(nestBOMap.BusinessObject, nestBOMap.Model, viewModelType, typeof(TRepository));
-                            var list = BusinessObject.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
+                            var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelType, typeof(TContext));
+                            var list = Repository.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
                             var listAddMethod = list.GetType().GetMethod("Add");
                             foreach (var nestedView in nestedViews)
                             {
-                                nestBOMap.SetParameters(viewModel, nestedView);
-                                nestedViewBO.MapBOFunction(nestedView);
+                                nestRepoMap.SetParameters(viewModel, nestedView);
+                                nestedViewRepo.MapRepoFunction(nestedView);
                                 listAddMethod.Invoke(list, new Object[] { nestedView });
                             }
 
@@ -696,9 +702,9 @@ namespace Joe.Business
                         else if (viewModelInfo.PropertyType.IsClass)
                         {
                             var nestedView = viewModelInfo.GetValue(viewModel);
-                            var nestedViewBO = BusinessObject.CreateBO(nestBOMap.BusinessObject, nestBOMap.Model, viewModelInfo.PropertyType, typeof(TRepository));
-                            nestBOMap.SetParameters(viewModel, nestedView);
-                            nestedViewBO.MapBOFunction(nestedView);
+                            var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelInfo.PropertyType, typeof(TContext));
+                            nestRepoMap.SetParameters(viewModel, nestedView);
+                            nestedViewRepo.MapRepoFunction(nestedView);
                         }
                     }
                 }
@@ -711,7 +717,7 @@ namespace Joe.Business
 
         public void Dispose()
         {
-            this.Repository.Dispose();
+            this.Context.Dispose();
         }
 
         /// <summary>

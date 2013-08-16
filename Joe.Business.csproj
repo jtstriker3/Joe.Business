@@ -37,18 +37,20 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="EntityFramework">
-      <HintPath>packages\EntityFramework.5.0.0\lib\net40\EntityFramework.dll</HintPath>
+      <HintPath>packages\EntityFramework.6.0.0-beta1\lib\net40\EntityFramework.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.Caching">
-      <HintPath>packages\Joe.Caching.1.0.0\lib\net40\Joe.Caching.dll</HintPath>
+    <Reference Include="EntityFramework.SqlServer">
+      <HintPath>packages\EntityFramework.6.0.0-beta1\lib\net40\EntityFramework.SqlServer.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.Map, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="Joe.Caching, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Map.1.0.2.4\lib\net45\Joe.Map.dll</HintPath>
+      <HintPath>packages\Joe.Caching.1.0.1\lib\net40\Joe.Caching.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.MapBack, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.MapBack.1.0.0.1\lib\net40\Joe.MapBack.dll</HintPath>
+    <Reference Include="Joe.Map">
+      <HintPath>packages\Joe.Map.1.0.3.5-beta\lib\net40\Joe.Map.dll</HintPath>
+    </Reference>
+    <Reference Include="Joe.MapBack">
+      <HintPath>packages\Joe.MapBack.1.0.0.6-beta\lib\net40\Joe.MapBack.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Reflection, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -56,13 +58,12 @@
     </Reference>
     <Reference Include="Joe.Security, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Security.1.0.1.6\lib\net40\Joe.Security.dll</HintPath>
+      <HintPath>packages\Joe.Security.1.0.2.3\lib\net40\Joe.Security.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Data.Entity" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -70,14 +71,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BOExtentions.cs" />
-    <Compile Include="BOMappingAttribute.cs" />
+    <Compile Include="RepoExtentions.cs" />
+    <Compile Include="RepoMappingAttribute.cs" />
     <Compile Include="BusinessConfiguration.cs" />
-    <Compile Include="BusinessObject.cs" />
+    <Compile Include="Repository.cs" />
     <Compile Include="Configuration.cs" />
     <Compile Include="DynamicFilter.cs" />
     <Compile Include="Email.cs" />
-    <Compile Include="IBusinessObject.cs" />
+    <Compile Include="IRepository.cs" />
     <Compile Include="IEmail.cs" />
     <Compile Include="IManyToMany.cs" />
     <Compile Include="ManyToManyExtentions.cs" />

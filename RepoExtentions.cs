@@ -11,9 +11,9 @@ using Joe.MapBack;
 
 namespace Joe.Business
 {
-    public static class BOExtentions
+    public static class RepoExtentions
     {
-        public static IEnumerable<Type> GetKeyTypes<TModel, TViewModel, TRepository>(this IBusinessObject<TModel, TViewModel, TRepository> bo)
+        public static IEnumerable<Type> GetKeyTypes<TModel, TViewModel, TRepository>(this IRepository<TModel, TViewModel, TRepository> repo)
             where TModel : class, new()
             where TViewModel : class, new()
             where TRepository : class, IDBViewContext, new()
@@ -21,7 +21,7 @@ namespace Joe.Business
             return GetKeyTypes<TModel, TViewModel, TRepository>();
         }
 
-        public static Object[] GetTypedIDs<TModel, TViewModel, TRepository>(this IBusinessObject<TModel, TViewModel, TRepository> bo, params Object[] ids)
+        public static Object[] GetTypedIDs<TModel, TViewModel, TRepository>(this IRepository<TModel, TViewModel, TRepository> repo, params Object[] ids)
             where TModel : class, new()
             where TViewModel : class, new()
             where TRepository : class, IDBViewContext, new()

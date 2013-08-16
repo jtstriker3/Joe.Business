@@ -101,7 +101,7 @@ public class PersonRepository<TViewModel, TContext> : Joe.Business.Repository<Pe
 ###MapRepoFunction
 The Map Repo Function consists of several Attributes that make it much easier to create ViewModels to be used for your UI
 
-..MapRepoFunction..- `MapRepoFunctionAttribute(String function, params String [] propertiesToPassIn)` This allows you Map a
+__MapRepoFunction__- `MapRepoFunctionAttribute(String function, params String [] propertiesToPassIn)` This allows you Map a
 property in your ViewModel to a function in your Repository. This might be down for complex Calculations that need to be done
 in code. Here is a simple Example of this:
 
@@ -129,7 +129,7 @@ public class PersonView
 }
 ```
 
-..AllValues.. - 'AllValues(Type repoToInvoke, Type model'/'AllValues(Type Model)' This lets you map a property in your view
+__AllValues__ - 'AllValues(Type repoToInvoke, Type model'/'AllValues(Type Model)' This lets you map a property in your view
 to All the Values of another Entity Object Lets assume that the Person Entity we have been working with has a One To Many
 relation with Jobs. Our Person Entity might look like such:
 

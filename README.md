@@ -46,7 +46,7 @@ personRepo.Delete(1); /*or*/ personRepo.Delete(person);
 
 //Create a new Person by creating a new PersonView and passing it in
 var newPerson = new PersonView(){ Name = "Joe" };
-newPerson = personRepo.Create(newPersion);
+newPerson = personRepo.Create(newPerson);
 
 //Update Person
 newPerson.Name = "John";
@@ -84,11 +84,11 @@ public class PersonRepository<TViewModel, TContext> : Joe.Business.Repository<Pe
 	{
 	  public PersonRepository()
 	  {
-	    this.AfterCreate += WhenSavedCreateAnotherPersion;
-	    this.AfterSave += WhenSavedCreateAnotherPersion;
+	    this.AfterCreate += WhenSavedCreateAnotherPerson;
+	    this.AfterSave += WhenSavedCreateAnotherPerson;
 	  }
 	
-	  public void WhenSavedCreateAnotherPersion(Person model, TViewModel viewModel, TContext context)
+	  public void WhenSavedCreateAnotherPerson(Person model, TViewModel viewModel, TContext context)
 	  {
 	    var personDbSet = context.GetIDbSet<Person>();
 	    Person anotherPerson = dbSet.Create();

@@ -88,12 +88,13 @@ public class PersonRepository<TViewModel, TContext> : Joe.Business.Repository<Pe
 	    this.AfterSave += WhenSavedCreateAnotherPerson;
 	  }
 	
-	  public void WhenSavedCreateAnotherPerson(Person model, TViewModel viewModel, TContext context)
+	  protected void WhenSavedCreateAnotherPerson(Person model, TViewModel viewModel, TContext context)
 	  {
 	    var personDbSet = context.GetIDbSet<Person>();
 	    Person anotherPerson = dbSet.Create();
 	    anotherPerson.Name = "Jim";
 	    dbSet.Add(anotherPerson);
+	    context.SaveChanges();
 	  }
 	}
 ```

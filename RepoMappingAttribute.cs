@@ -153,13 +153,46 @@ namespace Joe.Business
     {
         public Type Repository { get; private set; }
         public Type Model { get; private set; }
+        public String IncludedList { get; set; }
         public String Filter { get; set; }
 
+        /// <summary>
+        /// Maps Possible Values of An Entity Type. This will use the repository to map the entities.
+        /// </summary>
+        /// <param name="repository">Repo to query from. Must Implement IRepository```</param>
+        /// <param name="model">Type of Entity to map from</param>
+        /// <param name="includedList">If many to many then this is the list of already included Entities. This should be a property in the view that maps the the Entity's Relation Property</param>
+        public AllValuesAttribute(Type repository, Type model, String includedList)
+            : this(model, includedList)
+        {
+            Repository = repository;
+        }
+        /// <summary>
+        /// Maps Possible Values of An Entity Type. This will use the repository to map the entities.
+        /// </summary>
+        /// <param name="repository">Repo to query from. Must Implement IRepository```</param>
+        /// <param name="model">Type of Entity to map from</param>
         public AllValuesAttribute(Type repository, Type model)
             : this(model)
         {
             Repository = repository;
         }
+
+        /// <summary>
+        /// This will map the entities directly from the context.
+        /// </summary>
+        /// <param name="model">Type of Entity to map from</param>
+        /// <param name="includedList">If many to many then this is the list of already included Entities. This should be a property in the view that maps the the Entity's Relation Property</param>
+        public AllValuesAttribute(Type model, String includedList)
+            : this(model)
+        {
+            IncludedList = includedList;
+        }
+
+         /// <summary>
+        /// This will map the entities directly from the context.
+        /// </summary>
+        /// <param name="model">Type of Entity to map from</param>
 
         public AllValuesAttribute(Type model)
         {

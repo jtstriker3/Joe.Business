@@ -11,6 +11,7 @@ using System.Collections;
 using Joe.MapBack;
 using System.ComponentModel.DataAnnotations;
 using System.Data.Entity.Validation;
+using Joe.Reflection;
 
 namespace Joe.Business
 {
@@ -656,16 +657,24 @@ namespace Joe.Business
                         if (viewModelInfo.PropertyType.ImplementsIEnumerable())
                         {
                             var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
-                            if (allValuesMap.Repository != null)
+                            var allValuesList = allValuesMap.Repository != null ?
+                                Repository.CreateRepo(allValuesMap.Repository, allValuesMap.Model, viewModelType, typeof(TContext)).Get(allValuesMap.Filter)
+                                : this.Context.GetIQuery(allValuesMap.Model).Map(viewModelType).Filter(allValuesMap.Filter);
+                            var list = Repository.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
+                            var listAddMethod = list.GetType().GetMethod("Add");
+                            if (!String.IsNullOrWhiteSpace(allValuesMap.IncludedList))
                             {
-                                var allValuesRepo = Repository.CreateRepo(allValuesMap.Repository, allValuesMap.Model, viewModelType, typeof(TContext));
-                                viewModelInfo.SetValue(viewModel, allValuesRepo.Get(allValuesMap.Filter));
+                                var includedValues = ReflectionHelper.GetEvalProperty(viewModel, allValuesMap.IncludedList) as IEnumerable;
+                                foreach (var item in allValuesList)
+                                {
+                                    if (includedValues.WhereVM(item) != null)
+                                        ReflectionHelper.SetEvalProperty(item, "Included", true);
+
+                                    listAddMethod.Invoke(list, new Object[] { item });
+                                }
+                                allValuesList = (IEnumerable)list;
                             }
-                            else
-                            {
-                               var allValuesList = this.Context.GetIQuery(allValuesMap.Model).Map(viewModelType).Filter(allValuesMap.Filter);
-                               viewModelInfo.SetValue(viewModel, allValuesList);
-                            }
+                            viewModelInfo.SetValue(viewModel, allValuesList);
                         }
                         else throw new Exception("Property Must Implement IEnumerable<>");
                     }

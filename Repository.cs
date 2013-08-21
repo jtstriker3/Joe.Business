@@ -665,9 +665,11 @@ namespace Joe.Business
                             if (!String.IsNullOrWhiteSpace(allValuesMap.IncludedList))
                             {
                                 var includedValues = ReflectionHelper.GetEvalProperty(viewModel, allValuesMap.IncludedList) as IEnumerable;
+                                var includedPropertyInfo = ReflectionHelper.TryGetEvalPropertyInfo(viewModel.GetType(), allValuesMap.IncludedList);
+                                var genericType = includedPropertyInfo.PropertyType.GetGenericArguments().Single();
                                 foreach (var item in allValuesList)
                                 {
-                                    if (includedValues.WhereVM(item) != null)
+                                    if (includedValues.WhereVM(item, genericType) != null)
                                         ReflectionHelper.SetEvalProperty(item, "Included", true);
 
                                     listAddMethod.Invoke(list, new Object[] { item });

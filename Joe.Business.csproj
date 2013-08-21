@@ -46,11 +46,13 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>packages\Joe.Caching.1.0.1\lib\net40\Joe.Caching.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.Map">
-      <HintPath>packages\Joe.Map.1.0.3.5-beta\lib\net40\Joe.Map.dll</HintPath>
+    <Reference Include="Joe.Map, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>packages\Joe.Map.1.0.3.11-beta\lib\net40\Joe.Map.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.MapBack">
-      <HintPath>packages\Joe.MapBack.1.0.0.6-beta\lib\net40\Joe.MapBack.dll</HintPath>
+    <Reference Include="Joe.MapBack, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>packages\Joe.MapBack.1.0.0.10-beta\lib\net40\Joe.MapBack.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Reflection, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>

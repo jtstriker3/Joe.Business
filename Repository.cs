@@ -211,8 +211,8 @@ namespace Joe.Business
                 if (this.BeforeMapBack != null)
                     this.BeforeMapBack(model, viewModel, Context);
 
-                model.MapBack(viewModel, this.Context);
                 model = this.Source.Add(model);
+                model.MapBack(viewModel, this.Context);
 
                 if (this.BeforeCreate != null)
                     this.BeforeCreate(model, viewModel, Context);
@@ -345,13 +345,16 @@ namespace Joe.Business
             {
                 var viewModelList = viewModels.ToList();
 
-                this.SetCrud(viewModels, this.ImplementsICrud, true);
+                this.SetCrud(viewModelList, this.ImplementsICrud, true);
+
 
                 if (this.Configuration.UseSecurity)
                 {
                     viewModels = viewModelList.Where(vm => this.Security.CanRead(this.GetModel, vm)).AsQueryable();
                     count = viewModels.Count();
                 }
+                else
+                    viewModels = viewModelList.AsQueryable();
             }
 
             if (orderBy.Count() > 0 && orderBy.First() != null)

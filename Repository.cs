@@ -62,7 +62,7 @@ namespace Joe.Business
 
             return repo;
         }
-        protected static Object CreateObject(Type type)
+        protected internal static Object CreateObject(Type type)
         {
 
             var newExpression = Expression.New(type);
@@ -623,9 +623,14 @@ namespace Joe.Business
             return this.Source.WhereVM(viewModel) != null;
         }
 
-        public virtual TViewModel Default()
+        public virtual TViewModel Default(TViewModel defaultValues = null)
         {
-            return this.Source.Create().Map<TModel, TViewModel>();
+            var model = this.Source.Create();
+            model.MapBack(defaultValues);
+            this.Source.Attach(model);
+            var viewModel = model.Map<TModel, TViewModel>();
+            this.Context.ObjectContext.Detach(model);
+            return viewModel;
         }
 
         public override void MapRepoFunction(Object viewModel, Boolean getModel = true)

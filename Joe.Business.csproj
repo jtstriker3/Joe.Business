@@ -37,10 +37,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="EntityFramework">
-      <HintPath>packages\EntityFramework.6.0.0-beta1\lib\net40\EntityFramework.dll</HintPath>
+      <HintPath>packages\EntityFramework.6.0.0-rc1\lib\net40\EntityFramework.dll</HintPath>
     </Reference>
     <Reference Include="EntityFramework.SqlServer">
-      <HintPath>packages\EntityFramework.6.0.0-beta1\lib\net40\EntityFramework.SqlServer.dll</HintPath>
+      <HintPath>packages\EntityFramework.6.0.0-rc1\lib\net40\EntityFramework.SqlServer.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Caching, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -73,11 +73,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Configuration\BusinessConfiguration.cs" />
     <Compile Include="RepoExtentions.cs" />
     <Compile Include="RepoMappingAttribute.cs" />
     <Compile Include="BusinessConfiguration.cs" />
     <Compile Include="Repository.cs" />
-    <Compile Include="Configuration.cs" />
     <Compile Include="DynamicFilter.cs" />
     <Compile Include="Email.cs" />
     <Compile Include="IRepository.cs" />
@@ -93,6 +93,10 @@
     <Compile Include="Report\ReportAttribute.cs" />
     <Compile Include="Report\ReportFilterAttribute.cs" />
     <Compile Include="Report\ReportRepository.cs" />
+    <Compile Include="Resource\IResource.cs" />
+    <Compile Include="Resource\IResourceProvider.cs" />
+    <Compile Include="Resource\Resource.cs" />
+    <Compile Include="Resource\ResourceProvider.cs" />
     <Compile Include="StaticCacheHelper.cs" />
   </ItemGroup>
   <ItemGroup>

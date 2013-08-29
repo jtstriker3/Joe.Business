@@ -50,7 +50,7 @@ namespace Joe.Business
         TViewModel Get(Object dynamicFilter, Boolean setCrud, params Object[] ids);
         TViewModel Update(TViewModel viewModel, Object dynamicFilters = null);
         IQueryable<TViewModel> Update(List<TViewModel> viewModelList, Object dynamicFilters = null);
-        TViewModel Default();
+        TViewModel Default(TViewModel defaultValues = null);
         void MapRepoFunction(TViewModel viewModel, Boolean getModel = true);
         void SetCrud(IEnumerable<TViewModel> viewModelList, Boolean iCrud, Boolean listMode = false);
         void SetCrud(TViewModel viewModel, Boolean iCrud, Boolean listMode = false);

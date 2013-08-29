@@ -19,16 +19,22 @@ namespace Joe.Business
 
         public static void Init<TRepository>() where TRepository : IDBViewContext, new()
         {
-            CacheTypeDict.ForEach(cachedPair => Cache.Instance.Add(cachedPair.Item2.Name, new TimeSpan(Configuration.CacheDuration, 0, 0), (Func<Object>)delegate()
+            CacheTypeDict.ForEach(cachedPair => Cache.Instance.Add(cachedPair.Item2.Name, new TimeSpan(Configuration.BusinessConfigurationSection.Instance.CacheDuration, 0, 0), (Func<Object>)delegate()
                 {
                     return AddCacheItem<TRepository>(cachedPair);
                 }
             ));
         }
 
-        public static Object AddCacheItem<TRepository>(Tuple<Type, Type> cachedPair) where TRepository : IDBViewContext, new()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="TContext">Context that implements IDbViewContext</typeparam>
+        /// <param name="cachedPair">Type 1 = Model Type 2 = ViewModel</param>
+        /// <returns></returns>
+        public static Object AddCacheItem<TContext>(Tuple<Type, Type> cachedPair) where TContext : IDBViewContext, new()
         {
-            var source = new TRepository().GetIQuery(cachedPair.Item1);
+            var source = new TContext().GetIQuery(cachedPair.Item1);
             var method = typeof(MapExtensions).GetMethods().Single(m => m.Name == "MapDBView"
                 && m.IsGenericMethod == true
                 && m.GetParameters().First().ParameterType.IsGenericType == true

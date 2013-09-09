@@ -212,7 +212,15 @@ namespace Joe.Business
                     this.BeforeMapBack(model, viewModel, Context);
 
                 model = this.Source.Add(model);
-                model.MapBack(viewModel, this.Context);
+                model.MapBack(viewModel, this.Context, () =>
+                {
+                    if (!this.Configuration.UseSecurity || this.Security.CanCreate(this.GetModel, viewModel))
+                    {
+                        Context.SaveChanges();
+                    }
+                    else
+                        throw new System.Security.SecurityException("Access to update denied.");
+                });
 
                 if (this.BeforeCreate != null)
                     this.BeforeCreate(model, viewModel, Context);
@@ -677,8 +685,9 @@ namespace Joe.Business
                                 var genericType = includedPropertyInfo.PropertyType.GetGenericArguments().Single();
                                 foreach (var item in allValuesList)
                                 {
-                                    if (includedValues.WhereVM(item, genericType) != null)
-                                        ReflectionHelper.SetEvalProperty(item, "Included", true);
+                                    if (includedValues != null)
+                                        if (includedValues.WhereVM(item, genericType) != null)
+                                            ReflectionHelper.SetEvalProperty(item, "Included", true);
 
                                     listAddMethod.Invoke(list, new Object[] { item });
                                 }

@@ -636,10 +636,9 @@ namespace Joe.Business
 
         public virtual TViewModel Default(TViewModel defaultValues = null)
         {
-            var model = this.Source.Create();
-            model.MapBack(defaultValues);
-            var ids = model.GetIDs().ToArray();
 
+            var ids = defaultValues.GetIDs().ToArray();
+            var defaultIds = ids;
             for (int i = 0; i < ids.Count(); i++)
             {
                 var id = ids[i];
@@ -648,9 +647,15 @@ namespace Joe.Business
                 if (id is Guid)
                     ids[i] = Guid.NewGuid().ToString();
             }
+            defaultValues.SetIDs(ids);
+            var model = this.Source.Create();
+            model.MapBack(defaultValues);
+
             this.Source.Attach(model);
             var viewModel = model.Map<TModel, TViewModel>();
             this.Context.ObjectContext.Detach(model);
+
+            viewModel.SetIDs(defaultIds);
             return viewModel;
         }
 

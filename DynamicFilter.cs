@@ -32,9 +32,13 @@ namespace Joe.Business
                 if (builtFilter != null)
                     builtFilter += ':';
                 builtFilter += filters[i - 2] + ':';
-                builtFilter += filters[i - 2] + ':';
+                builtFilter += filters[i - 1] + ':';
 
-                builtFilter += Joe.Reflection.ReflectionHelper.GetEvalProperty(viewModel, filters[i]);
+                var propinfo = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(viewModel.GetType(), filters[i]);
+                if (propinfo != null)
+                    builtFilter += propinfo.GetValue(viewModel);
+                else
+                    builtFilter += filters[i];
             }
             return builtFilter;
         }

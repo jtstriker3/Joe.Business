@@ -638,6 +638,16 @@ namespace Joe.Business
         {
             var model = this.Source.Create();
             model.MapBack(defaultValues);
+            var ids = model.GetIDs().ToArray();
+
+            for (int i = 0; i < ids.Count(); i++)
+            {
+                var id = ids[i];
+                if (id is string)
+                    ids[i] = Guid.NewGuid().ToString();
+                if (id is Guid)
+                    ids[i] = Guid.NewGuid().ToString();
+            }
             this.Source.Attach(model);
             var viewModel = model.Map<TModel, TViewModel>();
             this.Context.ObjectContext.Detach(model);
@@ -662,6 +672,33 @@ namespace Joe.Business
                     var nestRepoMap = viewModelInfo.GetCustomAttributes(typeof(NestedRepoMappingAttribute), true).SingleOrDefault() as NestedRepoMappingAttribute;
                     var allValuesMap = viewModelInfo.GetCustomAttributes(typeof(AllValuesAttribute), true).SingleOrDefault() as AllValuesAttribute;
                     var dyanmicFilterss = viewModelInfo.GetCustomAttributes(typeof(DynamicFilterAttribute), true).SingleOrDefault() as DynamicFilterAttribute;
+
+                    if (nestRepoMap != null)
+                    {
+                        if (viewModelInfo.PropertyType.ImplementsIEnumerable())
+                        {
+                            var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
+                            var nestedViews = ((IEnumerable)viewModelInfo.GetValue(viewModel)).Cast<Object>();
+                            var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelType, typeof(TContext));
+                            var list = Repository.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
+                            var listAddMethod = list.GetType().GetMethod("Add");
+                            foreach (var nestedView in nestedViews)
+                            {
+                                nestRepoMap.SetParameters(viewModel, nestedView);
+                                nestedViewRepo.MapRepoFunction(nestedView);
+                                listAddMethod.Invoke(list, new Object[] { nestedView });
+                            }
+
+                            viewModelInfo.SetValue(viewModel, list);
+                        }
+                        else if (viewModelInfo.PropertyType.IsClass)
+                        {
+                            var nestedView = viewModelInfo.GetValue(viewModel);
+                            var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelInfo.PropertyType, typeof(TContext));
+                            nestRepoMap.SetParameters(viewModel, nestedView);
+                            nestedViewRepo.MapRepoFunction(nestedView);
+                        }
+                    }
                     if (repoMap != null && repoMap.HasMethod)
                     {
                         viewModelInfo.SetValue(viewModel,
@@ -708,32 +745,6 @@ namespace Joe.Business
                             viewModelInfo.SetValue(viewModel, viewModelList);
                         }
                         else throw new Exception("Property Must Implement IEnumerable<>");
-                    }
-                    if (nestRepoMap != null)
-                    {
-                        if (viewModelInfo.PropertyType.ImplementsIEnumerable())
-                        {
-                            var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
-                            var nestedViews = ((IEnumerable)viewModelInfo.GetValue(viewModel)).Cast<Object>();
-                            var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelType, typeof(TContext));
-                            var list = Repository.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
-                            var listAddMethod = list.GetType().GetMethod("Add");
-                            foreach (var nestedView in nestedViews)
-                            {
-                                nestRepoMap.SetParameters(viewModel, nestedView);
-                                nestedViewRepo.MapRepoFunction(nestedView);
-                                listAddMethod.Invoke(list, new Object[] { nestedView });
-                            }
-
-                            viewModelInfo.SetValue(viewModel, list);
-                        }
-                        else if (viewModelInfo.PropertyType.IsClass)
-                        {
-                            var nestedView = viewModelInfo.GetValue(viewModel);
-                            var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelInfo.PropertyType, typeof(TContext));
-                            nestRepoMap.SetParameters(viewModel, nestedView);
-                            nestedViewRepo.MapRepoFunction(nestedView);
-                        }
                     }
                 }
                 catch (Exception ex)

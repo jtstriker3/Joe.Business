@@ -47,7 +47,11 @@ namespace Joe.Business
             var typedIDs = new List<Object>();
             for (int i = 0; i < idList.Count; i++)
             {
-                typedIDs.Add(Convert.ChangeType(idList[i], idTypesList[i]));
+                if (idTypesList[i] != typeof(Guid))
+                    typedIDs.Add(Convert.ChangeType(idList[i], idTypesList[i]));
+                else
+                    typedIDs.Add(new Guid(idList[i].ToString()));
+
             }
 
             return typedIDs.ToArray();

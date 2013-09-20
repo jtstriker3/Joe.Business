@@ -46,13 +46,16 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>packages\Joe.Caching.1.0.1\lib\net40\Joe.Caching.dll</HintPath>
     </Reference>
+    <Reference Include="Joe.Init">
+      <HintPath>packages\Joe.Init.1.0.0.2\lib\net40\Joe.Init.dll</HintPath>
+    </Reference>
     <Reference Include="Joe.Map, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>packages\Joe.Map.1.0.3.15-beta\lib\net40\Joe.Map.dll</HintPath>
     </Reference>
     <Reference Include="Joe.MapBack, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.MapBack.1.0.0.14-beta\lib\net40\Joe.MapBack.dll</HintPath>
+      <HintPath>packages\Joe.MapBack.1.0.0.16-beta\lib\net40\Joe.MapBack.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Reflection, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -74,6 +77,19 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration\BusinessConfiguration.cs" />
+    <Compile Include="Notification\Alert.cs" />
+    <Compile Include="Notification\AlertType.cs" />
+    <Compile Include="Notification\IAlert.cs" />
+    <Compile Include="Notification\INotification.cs" />
+    <Compile Include="Notification\INotificationProperty.cs" />
+    <Compile Include="Notification\INotificationProvider.cs" />
+    <Compile Include="Notification\IUser.cs" />
+    <Compile Include="Notification\NotificationEmail.cs" />
+    <Compile Include="Notification\Notification.cs" />
+    <Compile Include="Notification\NotificationProperty.cs" />
+    <Compile Include="Notification\NotificationType.cs" />
+    <Compile Include="Notification\NotificationProvider.cs" />
+    <Compile Include="Notification\User.cs" />
     <Compile Include="RepoExtentions.cs" />
     <Compile Include="RepoMappingAttribute.cs" />
     <Compile Include="BusinessConfiguration.cs" />

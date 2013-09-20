@@ -12,6 +12,7 @@ using Joe.MapBack;
 using System.ComponentModel.DataAnnotations;
 using System.Data.Entity.Validation;
 using Joe.Reflection;
+using Joe.Business.Notification;
 
 namespace Joe.Business
 {
@@ -90,6 +91,8 @@ namespace Joe.Business
         }
         protected BusinessConfigurationAttribute Configuration { get; set; }
         protected virtual ISecurity<TModel> Security { get; set; }
+        protected INotificationProvider NotificationProvider { get; set; }
+        protected new IEmailProvider EmailProvider { get; set; }
         private TContext _repository;
         protected TContext Context
         {
@@ -153,6 +156,8 @@ namespace Joe.Business
             Configuration = (BusinessConfigurationAttribute)GetType().GetCustomAttributes(typeof(BusinessConfigurationAttribute), true).SingleOrDefault() ?? new BusinessConfigurationAttribute();
             Context = repositiory;
             Security = security ?? this.TryGetSecurityForModel();
+            NotificationProvider = Joe.Business.Notification.NotificationProvider.ProviderInstance;
+            EmailProvider = Repository.EmailProvider;
         }
 
         public Repository(ISecurity<TModel> security)
@@ -229,6 +234,8 @@ namespace Joe.Business
                 {
                     this.Context.SaveChanges();
                     viewModel = model.Map<TModel, TViewModel>(dynamicFilters);
+                    if (this.NotificationProvider != null)
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Create, model, this.EmailProvider);
                 }
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
@@ -433,6 +440,8 @@ namespace Joe.Business
                 {
                     if (this.ViewModelRetrieved != null)
                         this.ViewModelRetrieved(this, new ViewModelEventArgs<TViewModel>(viewModel));
+                    if (this.NotificationProvider != null)
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Read, model, this.EmailProvider);
                     return viewModel;
                 }
                 else
@@ -470,6 +479,8 @@ namespace Joe.Business
                 if (!this.Configuration.UseSecurity || this.Security.CanUpdate(this.GetModel, viewModel))
                 {
                     this.Context.SaveChanges();
+                    if (this.NotificationProvider != null)
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Update, model, this.EmailProvider);
                 }
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
@@ -517,6 +528,12 @@ namespace Joe.Business
                         throw new System.Security.SecurityException("Access to update denied.");
                 }
                 this.Context.SaveChanges();
+
+                if (this.NotificationProvider != null)
+                    foreach (var model in modelList)
+                    {
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Update, model, this.EmailProvider);
+                    }
 
                 if (this.Configuration.SetCrud)
                     this.SetCrud(viewModelList, this.ImplementsICrud);
@@ -580,9 +597,13 @@ namespace Joe.Business
                     this.BeforeDelete(model, viewModel, Context);
                 this.Source.Remove(model);
                 if (!this.Configuration.UseSecurity || this.Security.CanDelete(this.GetModel, viewModel))
+                {
                     this.Context.SaveChanges();
+                    if (this.NotificationProvider != null)
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Delete, model, this.EmailProvider);
+                }
                 else
-                    throw new System.Security.SecurityException("Access to update denied.");
+                    throw new System.Security.SecurityException("Access to delete denied.");
                 if (this.AfterDelete != null)
                     this.AfterDelete(model, viewModel, Context);
                 if (this.ViewModelDeleted != null)
@@ -636,26 +657,19 @@ namespace Joe.Business
 
         public virtual TViewModel Default(TViewModel defaultValues = null)
         {
-
-            var ids = defaultValues.GetIDs().ToArray();
-            var defaultIds = ids;
-            for (int i = 0; i < ids.Count(); i++)
-            {
-                var id = ids[i];
-                if (id is string)
-                    ids[i] = Guid.NewGuid().ToString();
-                if (id is Guid)
-                    ids[i] = Guid.NewGuid().ToString();
-            }
-            defaultValues.SetIDs(ids);
             var model = this.Source.Create();
             model.MapBack(defaultValues);
+            TViewModel viewModel;
+            var keyTypes = RepoExtentions.GetKeyTypes(this);
+            if (!keyTypes.Contains(typeof(String)) || !keyTypes.Contains(typeof(Guid)))
+            {
+                this.Source.Attach(model);
+                viewModel = model.Map<TModel, TViewModel>();
+                this.Context.ObjectContext.Detach(model);
+            }
+            else
+                viewModel = model.Map<TModel, TViewModel>();
 
-            this.Source.Attach(model);
-            var viewModel = model.Map<TModel, TViewModel>();
-            this.Context.ObjectContext.Detach(model);
-
-            viewModel.SetIDs(defaultIds);
             return viewModel;
         }
 

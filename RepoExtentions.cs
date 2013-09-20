@@ -108,5 +108,15 @@ namespace Joe.Business
         {
             return info.GetValue(obj, null);
         }
+
+        public static IEnumerable<Tuple<PropertyInfo, Object>> GetKeyInfo<TViewModel, TModel>(TViewModel viewModel)
+        {
+            foreach (PropertyInfo info in viewModel.GetType().GetProperties())
+            {
+                ViewMappingHelper vmh = new ViewMappingHelper(info, typeof(TModel));
+                if (vmh.ViewMapping.Key)
+                    yield return new Tuple<PropertyInfo, Object>(info, info.GetValue(viewModel));
+            }
+        }
     }
 }

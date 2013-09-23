@@ -90,11 +90,11 @@ namespace Joe.Business.Notification
                         this.SaveAlert(notification, target);
                         break;
                     case AlertType.Email:
-                        this.SendEmial(notification, target, emailProvider);
+                        this.SendEmail(notification, target, emailProvider);
                         break;
                     case AlertType.All:
                         this.SaveAlert(notification, target);
-                        this.SendEmial(notification, target, emailProvider);
+                        this.SendEmail(notification, target, emailProvider);
                         break;
 
                 }
@@ -108,7 +108,7 @@ namespace Joe.Business.Notification
             }
         }
 
-        public abstract void SendEmial<T>(INotification notification, T target, IEmailProvider emailProvider);
+        public abstract void SendEmail<T>(INotification notification, T target, IEmailProvider emailProvider);
 
         public abstract void SaveAlert<T>(INotification notification, T target);
 
@@ -121,12 +121,19 @@ namespace Joe.Business.Notification
 
             foreach (Match match in matches)
             {
-                var propertyName = match.Value.Replace("@", String.Empty);
-                var value = Joe.Reflection.ReflectionHelper.GetEvalProperty(target, propertyName);
-                if (value != null)
-                    message.Replace(match.Value, value.ToString());
-                else
-                    message.Replace(match.Value, "NULL");
+                try
+                {
+                    var propertyName = match.Value.Replace("@", String.Empty);
+                    var value = Joe.Reflection.ReflectionHelper.GetEvalProperty(target, propertyName);
+                    if (value != null)
+                        message = message.Replace(match.Value, value.ToString());
+                    else
+                        message = message.Replace(match.Value, "NULL");
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(String.Format("Error Parsing Message for: {0}", match.Value), ex);
+                }
             }
             return message;
 
@@ -174,6 +181,7 @@ namespace Joe.Business.Notification
                     var alert = alertDbSet.Create();
                     alert.AlertDate = DateTime.Now;
                     alert.Message = this.ParseMessage(notification.Message, target);
+                    alert.ShortMessage = this.ParseMessage(notification.Message, target);
                     alert.UserID = user.ID;
                     alertDbSet.Add(alert);
                 }
@@ -182,6 +190,7 @@ namespace Joe.Business.Notification
                     var alert = alertDbSet.Create();
                     alert.AlertDate = DateTime.Now;
                     alert.Message = this.ParseMessage(notification.Message, target);
+                    alert.ShortMessage = this.ParseMessage(notification.Message, target);
                     alert.UserID = Joe.Security.Security.Provider.UserID;
                     alertDbSet.Add(alert);
                 }
@@ -191,25 +200,43 @@ namespace Joe.Business.Notification
                 throw new Exception(String.Format("Type {0} must be part of your Context", typeof(Alert).FullName));
         }
 
-        public override void SendEmial<T>(INotification notification, T target, IEmailProvider emailProvider)
+        public override void SendEmail<T>(INotification notification, T target, IEmailProvider emailProvider)
         {
             if (emailProvider != null)
             {
+                var context = new TContext();
                 var toList = notification.To.Select(user => user.Email).ToList();
                 if (notification.CurrentUser)
                 {
-                    var context = new TContext();
                     var currentUser = context.GetIDbSet<User>().Find(Joe.Security.Security.Provider.UserID);
                     if (currentUser != null)
                         toList.Add(currentUser.Email);
                 }
-                Email<NotificationEmail> email = new Email<NotificationEmail>()
+                var notificationEmail = new NotificationEmail()
+                {
+                    Template = notification.TemplateName,
+                    Message = this.ParseMessage(notification.Message, target),
+                    ShortMessage = this.ParseMessage(notification.ShortMessage, target)
+                };
+
+                Email<INotificationEmail> email = new Email<INotificationEmail>()
                 {
                     BCC = notification.Bcc.Select(user => user.Email).ToList(),
                     CC = notification.CC.Select(user => user.Email).ToList(),
                     To = toList,
-                    Model = new NotificationEmail() { Template = notification.TemplateName, Message = this.ParseMessage(notification.Message, target) }
+                    Subject = notification.Subject,
+                    Model = notificationEmail
                 };
+
+                if (notification.Archive)
+                {
+                    var notificationEmailIDbSet = context.GetIDbSet<NotificationEmail>();
+                    if (notificationEmailIDbSet != null)
+                    {
+                        notificationEmailIDbSet.Add(notificationEmail);
+                        context.SaveChanges();
+                    }
+                }
 
                 emailProvider.SendMail(email);
             }

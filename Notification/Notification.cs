@@ -20,5 +20,8 @@ namespace Joe.Business.Notification
         public virtual List<User> To { get; set; }
         public AlertType AlertType { get; set; }
         public Boolean CurrentUser { get; set; }
+        public Boolean Archive { get; set; }
+        public String Subject { get; set; }
+        public String ShortMessage { get; set; }
     }
 }

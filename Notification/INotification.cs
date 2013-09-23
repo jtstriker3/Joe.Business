@@ -16,5 +16,8 @@ namespace Joe.Business.Notification
         System.Collections.Generic.List<User> To { get; set; }
         string Trigger { get; set; }
         Boolean CurrentUser { get; set; }
+        Boolean Archive { get; set; }
+        String Subject { get; set; }
+        String ShortMessage { get; set; }
     }
 }

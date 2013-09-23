@@ -81,6 +81,7 @@
     <Compile Include="Notification\AlertType.cs" />
     <Compile Include="Notification\IAlert.cs" />
     <Compile Include="Notification\INotification.cs" />
+    <Compile Include="Notification\INotificationEmail.cs" />
     <Compile Include="Notification\INotificationProperty.cs" />
     <Compile Include="Notification\INotificationProvider.cs" />
     <Compile Include="Notification\IUser.cs" />

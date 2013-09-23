@@ -595,9 +595,10 @@ namespace Joe.Business
                 TModel model = Source.WhereVM(viewModel);
                 if (this.BeforeDelete != null)
                     this.BeforeDelete(model, viewModel, Context);
-                this.Source.Remove(model);
+                
                 if (!this.Configuration.UseSecurity || this.Security.CanDelete(this.GetModel, viewModel))
                 {
+                    this.Source.Remove(model);
                     this.Context.SaveChanges();
                     if (this.NotificationProvider != null)
                         this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Delete, model, this.EmailProvider);
@@ -661,7 +662,7 @@ namespace Joe.Business
             model.MapBack(defaultValues);
             TViewModel viewModel;
             var keyTypes = RepoExtentions.GetKeyTypes(this);
-            if (!keyTypes.Contains(typeof(String)) || !keyTypes.Contains(typeof(Guid)))
+            if (!keyTypes.Contains(typeof(String)) && !keyTypes.Contains(typeof(Guid)))
             {
                 this.Source.Attach(model);
                 viewModel = model.Map<TModel, TViewModel>();

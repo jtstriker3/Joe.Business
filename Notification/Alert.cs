@@ -15,5 +15,6 @@ namespace Joe.Business.Notification
         public Boolean Read { get; set; }
         public String UserID { get; set; }
         public virtual User User { get; set; }
+        public String ShortMessage { get; set; }
     }
 }

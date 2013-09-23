@@ -11,6 +11,7 @@ namespace Joe.Business
         System.Collections.Generic.ICollection<String> BCC { get; set; }
         System.Collections.Generic.ICollection<String> CC { get; set; }
         System.Collections.Generic.ICollection<String> To { get; set; }
+        String Subject { get; set; }
         T Model { get; set; }
     }
 

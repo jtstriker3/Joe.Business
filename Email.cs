@@ -11,6 +11,7 @@ namespace Joe.Business
         public ICollection<String> To { get; set; }
         public ICollection<String> CC { get; set; }
         public ICollection<String> BCC { get; set; }
+        public String Subject { get; set; }
         public T Model { get; set; }
 
         public Email()

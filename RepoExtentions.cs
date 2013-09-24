@@ -114,8 +114,9 @@ namespace Joe.Business
             foreach (PropertyInfo info in viewModel.GetType().GetProperties())
             {
                 ViewMappingHelper vmh = new ViewMappingHelper(info, typeof(TModel));
-                if (vmh.ViewMapping.Key)
-                    yield return new Tuple<PropertyInfo, Object>(info, info.GetValue(viewModel));
+                if (vmh.ViewMapping != null)
+                    if (vmh.ViewMapping.Key)
+                        yield return new Tuple<PropertyInfo, Object>(info, info.GetValue(viewModel));
             }
         }
     }

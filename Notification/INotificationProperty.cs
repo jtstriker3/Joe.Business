@@ -6,5 +6,9 @@ namespace Joe.Business.Notification
         int ID { get; set; }
         string PropertyMap { get; set; }
         string Value { get; set; }
+        Boolean WhenChanged { get; set; }
+        Boolean WhenRemoved { get; set; }
+        Boolean WhenAdded { get; set; }
+        int NotificationID { get; set; }
     }
 }

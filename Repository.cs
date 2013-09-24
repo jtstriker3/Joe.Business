@@ -235,7 +235,7 @@ namespace Joe.Business
                     this.Context.SaveChanges();
                     viewModel = model.Map<TModel, TViewModel>(dynamicFilters);
                     if (this.NotificationProvider != null)
-                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Create, model, this.EmailProvider);
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Create, model, null, this.EmailProvider);
                 }
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
@@ -441,7 +441,7 @@ namespace Joe.Business
                     if (this.ViewModelRetrieved != null)
                         this.ViewModelRetrieved(this, new ViewModelEventArgs<TViewModel>(viewModel));
                     if (this.NotificationProvider != null)
-                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Read, model, this.EmailProvider);
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Read, model, null, this.EmailProvider);
                     return viewModel;
                 }
                 else
@@ -458,7 +458,7 @@ namespace Joe.Business
             try
             {
                 TModel model = this.Source.WhereVM(viewModel);
-
+                var prestineModel = this.Source.AsNoTracking().WhereVM(viewModel);
                 if (this.BeforeMapBack != null)
                     this.BeforeMapBack(model, viewModel, Context);
 
@@ -480,7 +480,7 @@ namespace Joe.Business
                 {
                     this.Context.SaveChanges();
                     if (this.NotificationProvider != null)
-                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Update, model, this.EmailProvider);
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Update, model, prestineModel, this.EmailProvider);
                 }
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
@@ -517,36 +517,43 @@ namespace Joe.Business
                         this.BeforeMapBack(this.Source.WhereVM(viewModel), viewModel, Context);
                 }
 
-                var modelList = this.Source.MapBack(viewModelList, this.Context).AsQueryable();
-
+                List<Tuple<TModel, TModel, TViewModel>> modelPrestineModelViewModelList = new List<Tuple<TModel, TModel, TViewModel>>();
                 foreach (var viewModel in viewModelList)
                 {
-                    var model = modelList.WhereVM(viewModel);
+                    var model = this.Source.WhereVM(viewModel);
+                    var prestineModel = this.Source.AsNoTracking().WhereVM(viewModel);
+
+                    model.MapBack(viewModel, this.Context);
+
                     if (this.BeforeUpdate != null)
                         this.BeforeUpdate(model, viewModel, Context);
                     if (this.Configuration.UseSecurity && !this.Security.CanUpdate(this.GetModel, viewModel))
                         throw new System.Security.SecurityException("Access to update denied.");
+
+                    modelPrestineModelViewModelList.Add(new Tuple<TModel, TModel, TViewModel>(model, prestineModel, viewModel));
                 }
+
                 this.Context.SaveChanges();
 
                 if (this.NotificationProvider != null)
-                    foreach (var model in modelList)
+                    foreach (var modelTuple in modelPrestineModelViewModelList)
                     {
-                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Update, model, this.EmailProvider);
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Update, modelTuple.Item1, modelTuple.Item2, this.EmailProvider);
                     }
 
                 if (this.Configuration.SetCrud)
                     this.SetCrud(viewModelList, this.ImplementsICrud);
 
-                foreach (var viewModel in viewModelList)
+                foreach (var modelTuple in modelPrestineModelViewModelList)
                 {
                     if (this.AfterUpdate != null)
-                        this.AfterUpdate(modelList.WhereVM(viewModel), viewModel, Context);
+                        this.AfterUpdate(modelTuple.Item1, modelTuple.Item3, Context);
                     if (this.ViewModelUpdated != null)
-                        this.ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(viewModel));
+                        this.ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(modelTuple.Item3));
                 }
 
                 FlushViewModelCache();
+                var modelList = modelPrestineModelViewModelList.Select(modelTuple => modelTuple.Item1).AsQueryable();
                 var returnList = modelList.Map<TModel, TViewModel>(dynamicFilters);
 
                 returnList.ForEach(vm =>
@@ -595,13 +602,13 @@ namespace Joe.Business
                 TModel model = Source.WhereVM(viewModel);
                 if (this.BeforeDelete != null)
                     this.BeforeDelete(model, viewModel, Context);
-                
+
                 if (!this.Configuration.UseSecurity || this.Security.CanDelete(this.GetModel, viewModel))
                 {
                     this.Source.Remove(model);
                     this.Context.SaveChanges();
                     if (this.NotificationProvider != null)
-                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Delete, model, this.EmailProvider);
+                        this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Delete, model, null, this.EmailProvider);
                 }
                 else
                     throw new System.Security.SecurityException("Access to delete denied.");
@@ -656,13 +663,19 @@ namespace Joe.Business
             return this.Source.WhereVM(viewModel) != null;
         }
 
+        public Boolean Exists(params Object[] ids)
+        {
+            return this.Source.Find(this.GetTypedIDs(ids)) != null;
+        }
+
         public virtual TViewModel Default(TViewModel defaultValues = null)
         {
             var model = this.Source.Create();
             model.MapBack(defaultValues);
             TViewModel viewModel;
-            var keyTypes = RepoExtentions.GetKeyTypes(this);
-            if (!keyTypes.Contains(typeof(String)) && !keyTypes.Contains(typeof(Guid)))
+            var keyTypes = RepoExtentions.GetKeyInfo<TViewModel, TModel>(defaultValues);
+            var nullKeys = keyTypes.Where(key => key.Item2 == null).Select(key => key.Item1.PropertyType);
+            if (!nullKeys.Contains(typeof(string)) && !nullKeys.Contains(typeof(Guid)))
             {
                 this.Source.Attach(model);
                 viewModel = model.Map<TModel, TViewModel>();

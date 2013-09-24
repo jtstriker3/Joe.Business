@@ -32,6 +32,7 @@ namespace Joe.Business
         void Delete(params Object[] ids);
         void Delete(TViewModel viewModel);
         Boolean Exists(TViewModel viewModel);
+        Boolean Exists(params Object[] ids);
         IQueryable<TViewModel> Get();
         IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter);
         IQueryable<TViewModel> Get(int? take, int? skip);

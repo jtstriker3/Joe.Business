@@ -43,45 +43,93 @@ namespace Joe.Business.Notification
 
         protected abstract ICollection<INotification> GetNotifications();
 
-        protected Boolean ValidateNotificationProperties<T>(IEnumerable<INotificationProperty> notificationProperties, T target)
+        protected Boolean ValidateNotificationProperties<T>(IEnumerable<INotificationProperty> notificationProperties, T target, T previousState = default(T))
         {
             foreach (var notificationProperty in notificationProperties)
             {
                 var propertyInfo = Joe.Reflection.ReflectionHelper.GetEvalPropertyInfo(typeof(T), notificationProperty.PropertyMap);
                 var propertyValue = Joe.Reflection.ReflectionHelper.GetEvalProperty(target, notificationProperty.PropertyMap);
+                Object previousValue = null;
+                if (previousState != null)
+                    previousValue = Joe.Reflection.ReflectionHelper.GetEvalProperty(previousState, notificationProperty.PropertyMap);
 
-                Object constant;
-                if (typeof(Enum).IsAssignableFrom(propertyInfo.PropertyType))
+                Object constant = null;
+                if (notificationProperty.Value != null)
                 {
-                    var enumInt = 0;
+                    if (typeof(Enum).IsAssignableFrom(propertyInfo.PropertyType))
+                    {
+                        var enumInt = 0;
 
-                    if (int.TryParse(notificationProperty.Value, out enumInt))
-                        constant = Enum.ToObject(propertyInfo.PropertyType, enumInt);
+                        if (int.TryParse(notificationProperty.Value, out enumInt))
+                            constant = Enum.ToObject(propertyInfo.PropertyType, enumInt);
+                        else
+                            constant = Enum.Parse(propertyInfo.PropertyType, notificationProperty.Value);
+
+                    }
                     else
-                        constant = Enum.Parse(propertyInfo.PropertyType, notificationProperty.Value);
-
+                        constant = Convert.ChangeType(notificationProperty.Value, propertyInfo.PropertyType);
                 }
-                else
-                    constant = notificationProperty.Value;
 
                 if (propertyInfo.PropertyType.ImplementsIEnumerable())
                 {
-                    if (!((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue))
+                    Boolean runningValue = false;
+                    if (notificationProperty.WhenAdded && previousValue != null)
+                    {
+                        if (((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue)
+                              && !((IEnumerable)propertyValue).Cast<Object>().Contains(previousValue))
+                        {
+                            runningValue = true;
+                        }
+                    }
+                    if (notificationProperty.WhenRemoved && previousValue != null)
+                    {
+                        if (!((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue)
+                             && ((IEnumerable)propertyValue).Cast<Object>().Contains(previousValue))
+                        {
+                            runningValue = true;
+                        }
+                    }
+                    if (!notificationProperty.WhenAdded && !notificationProperty.WhenRemoved)
+                        if (((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue))
+                        {
+                            runningValue = true;
+                        }
+
+                    if (!runningValue)
                         return false;
                 }
-                else if (!propertyValue.Equals(constant))
-                    return false;
+                else if (previousState != null)
+                {
+                    if (notificationProperty.WhenChanged
+                            && constant != null)
+                    {
+                        if (!propertyValue.Equals(constant) || previousValue.Equals(constant))
+                            return false;
+                    }
+                    else if (notificationProperty.WhenChanged && constant == null)
+                    {
+                        if (propertyValue.Equals(previousValue))
+                            return false;
+                    }
+                    else if (!notificationProperty.WhenChanged)
+                        if (!propertyValue.Equals(constant))
+                            return false;
+                }
+                else if (!notificationProperty.WhenChanged)
+                    if (!propertyValue.Equals(constant))
+                        return false;
+
             }
 
             return true;
         }
 
-        public virtual void ProcessNotifications<T>(String trigger, NotificationType notificationType, T target, IEmailProvider emailProvider = null)
+        public virtual void ProcessNotifications<T>(String trigger, NotificationType notificationType, T target, T previousState = default(T), IEmailProvider emailProvider = null)
         {
             var notifications = this.GetNotifications().Where(notification =>
                                              notification.Trigger == trigger
                                              && notification.NotificationTypes == notificationType
-                                             && this.ValidateNotificationProperties(notification.NotificationProperties.Cast<INotificationProperty>(), target));
+                                             && this.ValidateNotificationProperties(notification.NotificationProperties.Cast<INotificationProperty>(), target, previousState));
             foreach (var notification in notifications)
             {
                 switch (notification.AlertType)
@@ -116,23 +164,26 @@ namespace Joe.Business.Notification
 
         protected String ParseMessage<T>(String message, T target)
         {
-            Regex regex = new Regex(@"(?<!\\)@[a-zA-Z0-9.-]*");
-            var matches = regex.Matches(message);
-
-            foreach (Match match in matches)
+            if (message != null)
             {
-                try
+                Regex regex = new Regex(@"(?<!\\)@[a-zA-Z0-9.-]*");
+                var matches = regex.Matches(message);
+
+                foreach (Match match in matches)
                 {
-                    var propertyName = match.Value.Replace("@", String.Empty);
-                    var value = Joe.Reflection.ReflectionHelper.GetEvalProperty(target, propertyName);
-                    if (value != null)
-                        message = message.Replace(match.Value, value.ToString());
-                    else
-                        message = message.Replace(match.Value, "NULL");
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception(String.Format("Error Parsing Message for: {0}", match.Value), ex);
+                    try
+                    {
+                        var propertyName = match.Value.Replace("@", String.Empty);
+                        var value = Joe.Reflection.ReflectionHelper.GetEvalProperty(target, propertyName);
+                        if (value != null)
+                            message = message.Replace(match.Value, value.ToString());
+                        else
+                            message = message.Replace(match.Value, "NULL");
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception(String.Format("Error Parsing Message for: {0}", match.Value), ex);
+                    }
                 }
             }
             return message;

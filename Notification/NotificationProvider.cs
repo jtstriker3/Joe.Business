@@ -260,7 +260,7 @@ namespace Joe.Business.Notification
                 if (notification.CurrentUser)
                 {
                     var currentUser = context.GetIDbSet<User>().Find(Joe.Security.Security.Provider.UserID);
-                    if (currentUser != null && !toList.Contains(currentUser.Email))
+                    if (currentUser != null && !String.IsNullOrWhiteSpace(currentUser.Email) && !toList.Contains(currentUser.Email))
                         toList.Add(currentUser.Email);
                 }
                 if (notification.Owner != null)
@@ -274,13 +274,13 @@ namespace Joe.Business.Notification
                             if (typeof(IUser).IsAssignableFrom(ownerInfo.PropertyType))
                             {
                                 var iUser = ownerValue as IUser;
-                                if (iUser != null && !toList.Contains(iUser.Email))
+                                if (iUser != null && !String.IsNullOrWhiteSpace(iUser.Email) && !toList.Contains(iUser.Email))
                                     toList.Add(iUser.Email);
                             }
                             else if (ownerInfo.PropertyType == typeof(String))
                             {
                                 var user = context.GetIDbSet<User>().Find(ownerValue);
-                                if (user != null && !toList.Contains(user.Email))
+                                if (user != null && !String.IsNullOrWhiteSpace(user.Email) && !toList.Contains(user.Email))
                                     toList.Add(user.Email);
                             }
                         }
@@ -295,9 +295,9 @@ namespace Joe.Business.Notification
 
                 Email<INotificationEmail> email = new Email<INotificationEmail>()
                 {
-                    BCC = notification.Bcc.Select(user => user.Email).ToList(),
-                    CC = notification.CC.Select(user => user.Email).ToList(),
-                    To = toList,
+                    BCC = notification.Bcc.Select(user => user.Email).Where(emailAddress => String.IsNullOrWhiteSpace(emailAddress)).ToList(),
+                    CC = notification.CC.Select(user => user.Email).Where(emailAddress => String.IsNullOrWhiteSpace(emailAddress)).ToList(),
+                    To = toList.Where(emailAddress => String.IsNullOrWhiteSpace(emailAddress)).ToList(),
                     Subject = notification.Subject,
                     Model = notificationEmail
                 };
@@ -311,8 +311,8 @@ namespace Joe.Business.Notification
                         context.SaveChanges();
                     }
                 }
-
-                emailProvider.SendMail(email);
+                if (email.To.Count() > 0 || email.BCC.Count() > 0 || email.CC.Count() > 0)
+                    emailProvider.SendMail(email);
             }
         }
 

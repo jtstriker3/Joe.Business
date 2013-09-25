@@ -19,5 +19,6 @@ namespace Joe.Business.Notification
         Boolean Archive { get; set; }
         String Subject { get; set; }
         String ShortMessage { get; set; }
+        String Owner { get; set; }
     }
 }

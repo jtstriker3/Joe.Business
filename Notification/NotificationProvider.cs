@@ -260,8 +260,31 @@ namespace Joe.Business.Notification
                 if (notification.CurrentUser)
                 {
                     var currentUser = context.GetIDbSet<User>().Find(Joe.Security.Security.Provider.UserID);
-                    if (currentUser != null)
+                    if (currentUser != null && !toList.Contains(currentUser.Email))
                         toList.Add(currentUser.Email);
+                }
+                if (notification.Owner != null)
+                {
+                    foreach (var owner in notification.Owner.Split(','))
+                    {
+                        var ownerInfo = Reflection.ReflectionHelper.TryGetEvalPropertyInfo(typeof(T), owner);
+                        var ownerValue = Reflection.ReflectionHelper.GetEvalProperty(target, owner);
+                        if (ownerInfo != null)
+                        {
+                            if (typeof(IUser).IsAssignableFrom(ownerInfo.PropertyType))
+                            {
+                                var iUser = ownerValue as IUser;
+                                if (iUser != null && !toList.Contains(iUser.Email))
+                                    toList.Add(iUser.Email);
+                            }
+                            else if (ownerInfo.PropertyType == typeof(String))
+                            {
+                                var user = context.GetIDbSet<User>().Find(ownerValue);
+                                if (user != null && !toList.Contains(user.Email))
+                                    toList.Add(user.Email);
+                            }
+                        }
+                    }
                 }
                 var notificationEmail = new NotificationEmail()
                 {

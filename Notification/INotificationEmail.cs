@@ -1,7 +1,7 @@
 ﻿using System;
 namespace Joe.Business.Notification
 {
-    interface INotificationEmail
+    public interface INotificationEmail
     {
         int ID { get; set; }
         string Message { get; set; }

@@ -33,6 +33,8 @@ namespace Joe.Business.Report
         {
             var report = this.GetReport(inReport.Name);
             report.MapBack(inReport);
+            inReport.Filters = report.Filters;
+            inReport.UiHint = report.UiHint;
             var reportMethod = this.GetType().GetMethod("RunReport");
             reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ReportView, typeof(TRepository));
 
@@ -124,6 +126,7 @@ namespace Joe.Business.Report
         public Type ListView { get; private set; }
         public IEnumerable<String> ListViewDisplayProperties { get; private set; }
         public IEnumerable SingleChoices { get; set; }
+        public String UiHint { get; set; }
 
         //So MVC Can map back properties. This will not be valid until properties mapped to a report initilized with a Report Type
         public Report() { }
@@ -139,6 +142,7 @@ namespace Joe.Business.Report
             Model = reportAttribute.Model;
             ListView = reportAttribute.ListView;
             ListViewDisplayProperties = reportAttribute.ListViewDisplayProperties;
+            UiHint = reportAttribute.UiHint;
 
         }
 
@@ -218,6 +222,11 @@ namespace Joe.Business.Report
                 if (ReportViewType.IsAssignableFrom(reportView.GetType()))
                 {
                     var typedValue = Convert.ChangeType(Value, FilterType);
+                    var useFilterValue = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(ReportViewType, ReportFilterAttribute.FilterPropertyName + "Active");
+
+                    if (useFilterValue != null && useFilterValue.PropertyType == typeof(Boolean) && Value != null)
+                        Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName + "Active", true);
+
                     Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName, typedValue);
                 }
                 else

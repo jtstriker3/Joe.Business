@@ -13,6 +13,7 @@ namespace Joe.Business.Report
         public Type Repository { get; private set; }
         public Type Model { get; private set; }
         public Type ListView { get; set; }
+        public String UiHint { get; set; }
         public IEnumerable<String> ListViewDisplayProperties { get; private set; }
         public Boolean Single
         {
@@ -22,10 +23,10 @@ namespace Joe.Business.Report
             }
         }
 
-        public ReportAttribute(String name, Type Repository, Type model, String description, params String[] listViewDisplayProperties)
+        public ReportAttribute(String name, Type repository, Type model, String description, params String[] listViewDisplayProperties)
         {
             Name = name;
-            Repository = Repository;
+            Repository = repository;
             Model = model;
             ListViewDisplayProperties = listViewDisplayProperties;
             Description = description;

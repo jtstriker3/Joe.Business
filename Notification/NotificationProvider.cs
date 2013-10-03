@@ -295,9 +295,9 @@ namespace Joe.Business.Notification
 
                 Email<INotificationEmail> email = new Email<INotificationEmail>()
                 {
-                    BCC = notification.Bcc.Select(user => user.Email).Where(emailAddress => String.IsNullOrWhiteSpace(emailAddress)).ToList(),
-                    CC = notification.CC.Select(user => user.Email).Where(emailAddress => String.IsNullOrWhiteSpace(emailAddress)).ToList(),
-                    To = toList.Where(emailAddress => String.IsNullOrWhiteSpace(emailAddress)).ToList(),
+                    BCC = notification.Bcc.Select(user => user.Email).Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
+                    CC = notification.CC.Select(user => user.Email).Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
+                    To = toList.Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
                     Subject = notification.Subject,
                     Model = notificationEmail
                 };

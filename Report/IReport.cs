@@ -21,5 +21,6 @@ namespace Joe.Business.Report
         [ViewMapping(ReadOnly = true)]
         System.Collections.IEnumerable SingleChoices { get; set; }
         string SingleID { get; set; }
+        String UiHint { get; set; }
     }
 }

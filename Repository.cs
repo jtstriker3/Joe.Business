@@ -671,8 +671,12 @@ namespace Joe.Business
         public virtual TViewModel Default(TViewModel defaultValues = null)
         {
             var model = this.Source.Create();
-            model.MapBack(defaultValues);
             TViewModel viewModel;
+            if (defaultValues != null)
+                model.MapBack(defaultValues);
+            else
+                defaultValues = model.Map<TModel, TViewModel>();
+
             var keyTypes = RepoExtentions.GetKeyInfo<TViewModel, TModel>(defaultValues);
             var nullKeys = keyTypes.Where(key => key.Item2 == null).Select(key => key.Item1.PropertyType);
             if (!nullKeys.Contains(typeof(string)) && !nullKeys.Contains(typeof(Guid)))

@@ -23,7 +23,17 @@ namespace Joe.Business.Report
             }
         }
 
-        public ReportAttribute(String name, Type repository, Type model, String description, params String[] listViewDisplayProperties)
+        public ReportAttribute(String name, String description, String uiHint, Type repository, Type model, params String[] listViewDisplayProperties)
+        {
+            Name = name;
+            Repository = repository;
+            Model = model;
+            ListViewDisplayProperties = listViewDisplayProperties;
+            Description = description;
+            UiHint = uiHint;
+        }
+
+        public ReportAttribute(String name, String description, Type repository, Type model, params String[] listViewDisplayProperties)
         {
             Name = name;
             Repository = repository;

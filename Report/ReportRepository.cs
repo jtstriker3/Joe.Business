@@ -32,9 +32,9 @@ namespace Joe.Business.Report
         public virtual Object Run<TRepository>(IReport inReport)
         {
             var report = this.GetReport(inReport.Name);
+            inReport.UiHint = report.UiHint;
             report.MapBack(inReport);
             inReport.Filters = report.Filters;
-            inReport.UiHint = report.UiHint;
             var reportMethod = this.GetType().GetMethod("RunReport");
             reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ReportView, typeof(TRepository));
 

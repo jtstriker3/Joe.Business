@@ -344,6 +344,7 @@ namespace Joe.Business
             params String[] orderBy
             )
         {
+            Boolean inMemory = false;
             IQueryable<TViewModel> viewModels;
             if (Configuration.GetListFromCache)
                 viewModels = StaticCacheHelper.GetCache<TViewModel>().AsQueryable();
@@ -359,7 +360,7 @@ namespace Joe.Business
             if (this.Configuration.SetCrud && setCrudOverride)
             {
                 var viewModelList = viewModels.ToList();
-
+                inMemory = true;
                 this.SetCrud(viewModelList, this.ImplementsICrud, true);
 
 
@@ -386,7 +387,11 @@ namespace Joe.Business
                 viewModels = ViewModelListMapped(this, new ViewModelListEventArgs<TViewModel>(viewModels));
 
             if (this.Configuration.MapRepositoryFunctionsForList && mapRepoFunctionsOverride)
+            {
+                if (!inMemory)
+                    viewModels = viewModels.ToList().AsQuerable();
                 viewModels.ForEach(vm => this.MapRepoFunction(vm));
+            }
 
             if (this.BeforeReturnList != null)
                 viewModels = this.BeforeReturnList(viewModels, this.Context);

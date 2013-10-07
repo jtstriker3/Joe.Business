@@ -389,7 +389,8 @@ namespace Joe.Business
             if (this.Configuration.MapRepositoryFunctionsForList && mapRepoFunctionsOverride)
             {
                 if (!inMemory)
-                    viewModels = viewModels.ToList().AsQuerable();
+                    //Load the list into memory so any changes are saved to the List returned to calling function
+                    viewModels = viewModels.ToList().AsQueryable();
                 viewModels.ForEach(vm => this.MapRepoFunction(vm));
             }
 

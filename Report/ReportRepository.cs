@@ -42,10 +42,10 @@ namespace Joe.Business.Report
         }
 
         public virtual IEnumerable GetSingleList<TRepository>(IReport report)
+            where TRepository : IDBViewContext, new()
         {
             var reportMethod = this.GetType().GetMethod("RunReport");
             reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ListView, typeof(TRepository));
-
             return (IEnumerable)reportMethod.Invoke(this, new Object[] { report, true });
         }
 
@@ -95,10 +95,19 @@ namespace Joe.Business.Report
         }
 
         public virtual IEnumerable GetFilterValues<TRepository>(IReportFilter filter)
+            where TRepository : IDBViewContext, new()
         {
-            var getFilterMethod = this.GetType().GetMethod("GetFilterValuesGeneric");
-            getFilterMethod = getFilterMethod.MakeGenericMethod(filter.Model, filter.ListView, typeof(TRepository));
-            return (IEnumerable)getFilterMethod.Invoke(this, new[] { filter });
+            if (filter.ListViewRepo != null)
+            {
+                var getFilterMethod = this.GetType().GetMethod("GetFilterValuesGeneric");
+                getFilterMethod = getFilterMethod.MakeGenericMethod(filter.Model, filter.ListView, typeof(TRepository));
+                return (IEnumerable)getFilterMethod.Invoke(this, new[] { filter });
+            }
+            else
+            {
+                var context = new TRepository();
+                return context.GetIQuery(filter.Model).Map(filter.ListView);
+            }
         }
 
         public virtual IEnumerable GetFilterValuesGeneric<TModel, TViewModel, TRepository>(IReportFilter filter)

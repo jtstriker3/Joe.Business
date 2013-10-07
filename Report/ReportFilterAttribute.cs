@@ -27,7 +27,7 @@ namespace Joe.Business.Report
         {
             get
             {
-                return ListView != null && ListViewRepo != null;
+                return ListView != null && Model != null;
             }
         }
         public Boolean IsListFilter
@@ -43,6 +43,15 @@ namespace Joe.Business.Report
             FilterPropertyName = filterPropertyName;
             ListView = listView;
             ListViewRepo = listViewRepo;
+            Model = model;
+            DisplayProperties = displayProperties;
+            Order = order;
+        }
+
+        public ReportFilterAttribute(int order, String filterPropertyName, Type listView, Type model, params String[] displayProperties)
+        {
+            FilterPropertyName = filterPropertyName;
+            ListView = listView;
             Model = model;
             DisplayProperties = displayProperties;
             Order = order;

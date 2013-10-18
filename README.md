@@ -142,6 +142,8 @@ public class Person
 
   public int JobId { get; set; }
   public virtural Job Job { get; set; }
+  
+  public List<Role> Roles { get; set; }
 }
 ```
 
@@ -155,6 +157,8 @@ public class PersonView
   
   public int JobId { get; set; }
   
+  public IEnumerable<Role> Roles { get; set; }
+  
   //This will pull and Map the Job Entity Objects to the JobView directly from the Context
   [AllValues(typeof(Job))]
   public IEnumerable<JobView> AllJobs { get; set; }
@@ -162,6 +166,11 @@ public class PersonView
   //This will pull and Map the Job Entity Objects to the JobView using the JobRepository
   [AllValues(typeof(JobRepository<,>), typeof(Job))]
   public IEnumerable<JobView> AllJobs { get; set; }
+  
+  //This will pull and Map the Roles Entity Object to the RoleView and use the Roles Property to
+  Set the Boolean Included Property of JobView
+  [AllValues(typeof(RolesRepository<,>), typeof(Role), "Roles")]
+  public IEnumerable<RoleView> AllRoles { get; set; }
 }
 ```
 

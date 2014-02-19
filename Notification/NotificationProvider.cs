@@ -10,6 +10,7 @@ using Joe.Map;
 using System.Collections;
 using System.Text.RegularExpressions;
 using System.Data.Entity;
+using Joe.Security;
 
 namespace Joe.Business.Notification
 {
@@ -47,77 +48,84 @@ namespace Joe.Business.Notification
         {
             foreach (var notificationProperty in notificationProperties)
             {
-                var propertyInfo = Joe.Reflection.ReflectionHelper.GetEvalPropertyInfo(typeof(T), notificationProperty.PropertyMap);
-                var propertyValue = Joe.Reflection.ReflectionHelper.GetEvalProperty(target, notificationProperty.PropertyMap);
-                Object previousValue = null;
-                if (previousState != null)
-                    previousValue = Joe.Reflection.ReflectionHelper.GetEvalProperty(previousState, notificationProperty.PropertyMap);
-
-                Object constant = null;
-                if (notificationProperty.Value != null)
+                try
                 {
-                    if (typeof(Enum).IsAssignableFrom(propertyInfo.PropertyType))
-                    {
-                        var enumInt = 0;
+                    var propertyInfo = Joe.Reflection.ReflectionHelper.GetEvalPropertyInfo(typeof(T), notificationProperty.PropertyMap);
+                    var propertyValue = Joe.Reflection.ReflectionHelper.GetEvalProperty(target, notificationProperty.PropertyMap);
+                    Object previousValue = null;
+                    if (previousState != null)
+                        previousValue = Joe.Reflection.ReflectionHelper.GetEvalProperty(previousState, notificationProperty.PropertyMap);
 
-                        if (int.TryParse(notificationProperty.Value, out enumInt))
-                            constant = Enum.ToObject(propertyInfo.PropertyType, enumInt);
+                    Object constant = null;
+                    if (notificationProperty.Value != null)
+                    {
+                        if (typeof(Enum).IsAssignableFrom(propertyInfo.PropertyType))
+                        {
+                            var enumInt = 0;
+
+                            if (int.TryParse(notificationProperty.Value, out enumInt))
+                                constant = Enum.ToObject(propertyInfo.PropertyType, enumInt);
+                            else
+                                constant = Enum.Parse(propertyInfo.PropertyType, notificationProperty.Value);
+
+                        }
                         else
-                            constant = Enum.Parse(propertyInfo.PropertyType, notificationProperty.Value);
-
+                            constant = Convert.ChangeType(notificationProperty.Value, propertyInfo.PropertyType);
                     }
-                    else
-                        constant = Convert.ChangeType(notificationProperty.Value, propertyInfo.PropertyType);
-                }
 
-                if (propertyInfo.PropertyType.ImplementsIEnumerable())
-                {
-                    Boolean runningValue = false;
-                    if (notificationProperty.WhenAdded && previousValue != null)
+                    if (propertyInfo.PropertyType.ImplementsIEnumerable())
                     {
-                        if (((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue)
-                              && !((IEnumerable)propertyValue).Cast<Object>().Contains(previousValue))
+                        Boolean runningValue = false;
+                        if (notificationProperty.WhenAdded && previousValue != null)
                         {
-                            runningValue = true;
+                            if (((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue)
+                                  && !((IEnumerable)propertyValue).Cast<Object>().Contains(previousValue))
+                            {
+                                runningValue = true;
+                            }
                         }
-                    }
-                    if (notificationProperty.WhenRemoved && previousValue != null)
-                    {
-                        if (!((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue)
-                             && ((IEnumerable)propertyValue).Cast<Object>().Contains(previousValue))
+                        if (notificationProperty.WhenRemoved && previousValue != null)
                         {
-                            runningValue = true;
+                            if (!((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue)
+                                 && ((IEnumerable)propertyValue).Cast<Object>().Contains(previousValue))
+                            {
+                                runningValue = true;
+                            }
                         }
-                    }
-                    if (!notificationProperty.WhenAdded && !notificationProperty.WhenRemoved)
-                        if (((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue))
-                        {
-                            runningValue = true;
-                        }
+                        if (!notificationProperty.WhenAdded && !notificationProperty.WhenRemoved)
+                            if (((IEnumerable)propertyValue).Cast<Object>().Contains(propertyValue))
+                            {
+                                runningValue = true;
+                            }
 
-                    if (!runningValue)
-                        return false;
-                }
-                else if (previousState != null)
-                {
-                    if (notificationProperty.WhenChanged
-                            && constant != null)
-                    {
-                        if (!propertyValue.Equals(constant) || previousValue.Equals(constant))
+                        if (!runningValue)
                             return false;
                     }
-                    else if (notificationProperty.WhenChanged && constant == null)
+                    else if (previousState != null)
                     {
-                        if (propertyValue.Equals(previousValue))
-                            return false;
+                        if (notificationProperty.WhenChanged
+                                && constant != null)
+                        {
+                            if (!propertyValue.Equals(constant) || previousValue.Equals(constant))
+                                return false;
+                        }
+                        else if (notificationProperty.WhenChanged && constant == null)
+                        {
+                            if (propertyValue.Equals(previousValue))
+                                return false;
+                        }
+                        else if (!notificationProperty.WhenChanged)
+                            if (!propertyValue.Equals(constant))
+                                return false;
                     }
                     else if (!notificationProperty.WhenChanged)
                         if (!propertyValue.Equals(constant))
                             return false;
                 }
-                else if (!notificationProperty.WhenChanged)
-                    if (!propertyValue.Equals(constant))
-                        return false;
+                catch (Exception ex)
+                {
+                    throw new Exception(String.Format("Error Evalulating Notification Criteria: {0}", notificationProperty.PropertyMap), ex);
+                }
 
             }
 
@@ -189,6 +197,51 @@ namespace Joe.Business.Notification
             return message;
 
         }
+
+        protected Boolean ValidateUser(INotification notification, IUser user)
+        {
+
+            List<String> securityGroups = new List<string>();
+            if (notification.SecurityGroups != null)
+                securityGroups.AddRange(notification.SecurityGroups.Split(','));
+            if (notification.SecurityAreas != null)
+            {
+                var areas = notification.SecurityAreas.Split(',');
+
+                foreach (var area in areas)
+                {
+                    var appArea = Joe.Security.SecurityConfiguration.GetInstance().ApplicationAreas.Cast<ApplicationArea>().SingleOrDefault(apa => apa.Name == area);
+
+                    if (appArea != null)
+                    {
+                        if (appArea.AllRoles != null)
+                            securityGroups.AddRange(appArea.AllRoles.Split(','));
+                        if (appArea.CreateRoles != null)
+                            securityGroups.AddRange(appArea.CreateRoles.Split(','));
+                        if (appArea.ReadRoles != null)
+                            securityGroups.AddRange(appArea.ReadRoles.Split(','));
+                        if (appArea.UpdateRoles != null)
+                            securityGroups.AddRange(appArea.UpdateRoles.Split(','));
+                        if (appArea.DeleteRoles != null)
+                            securityGroups.AddRange(appArea.DeleteRoles.Split(','));
+                    }
+                }
+            }
+
+            if (securityGroups.Count() > 0)
+                return Joe.Security.Security.Provider.IsUserInRole(user.ID, securityGroups.ToArray());
+
+            return true;
+        }
+
+        protected void RemoveInvalidUsers(INotification notification, ICollection<IUser> users)
+        {
+            foreach (var user in users.ToList())
+            {
+                if (!ValidateUser(notification, user))
+                    users.Remove(user);
+            }
+        }
     }
 
     public class NotificationProvider<TContext> : NotificationProvider
@@ -227,7 +280,10 @@ namespace Joe.Business.Notification
             var alertDbSet = context.GetIDbSet<Alert>();
             if (alertDbSet != null)
             {
-                foreach (var user in notification.To)
+                var toList = notification.To.Cast<IUser>().ToList();
+                this.RemoveInvalidUsers(notification, toList);
+                CheckOwner(notification, target, context, toList);
+                foreach (var user in toList)
                 {
                     var alert = alertDbSet.Create();
                     alert.AlertDate = DateTime.Now;
@@ -256,36 +312,17 @@ namespace Joe.Business.Notification
             if (emailProvider != null)
             {
                 var context = new TContext();
-                var toList = notification.To.Select(user => user.Email).ToList();
+                var userList = notification.To.Cast<IUser>().ToList();
+                this.RemoveInvalidUsers(notification, userList);
+                CheckOwner<T>(notification, target, context, userList);
+                var toList = userList.Select(user => user.Email).ToList();
                 if (notification.CurrentUser)
                 {
                     var currentUser = context.GetIDbSet<User>().Find(Joe.Security.Security.Provider.UserID);
                     if (currentUser != null && !String.IsNullOrWhiteSpace(currentUser.Email) && !toList.Contains(currentUser.Email))
                         toList.Add(currentUser.Email);
                 }
-                if (notification.Owner != null)
-                {
-                    foreach (var owner in notification.Owner.Split(','))
-                    {
-                        var ownerInfo = Reflection.ReflectionHelper.TryGetEvalPropertyInfo(typeof(T), owner);
-                        var ownerValue = Reflection.ReflectionHelper.GetEvalProperty(target, owner);
-                        if (ownerInfo != null)
-                        {
-                            if (typeof(IUser).IsAssignableFrom(ownerInfo.PropertyType))
-                            {
-                                var iUser = ownerValue as IUser;
-                                if (iUser != null && !String.IsNullOrWhiteSpace(iUser.Email) && !toList.Contains(iUser.Email))
-                                    toList.Add(iUser.Email);
-                            }
-                            else if (ownerInfo.PropertyType == typeof(String))
-                            {
-                                var user = context.GetIDbSet<User>().Find(ownerValue);
-                                if (user != null && !String.IsNullOrWhiteSpace(user.Email) && !toList.Contains(user.Email))
-                                    toList.Add(user.Email);
-                            }
-                        }
-                    }
-                }
+                CheckOwner<T>(notification, target, context, userList);
                 var notificationEmail = new NotificationEmail()
                 {
                     Template = notification.TemplateName,
@@ -293,10 +330,15 @@ namespace Joe.Business.Notification
                     ShortMessage = this.ParseMessage(notification.ShortMessage, target)
                 };
 
+                var ccUsers = notification.CC.Cast<IUser>().ToList();
+                RemoveInvalidUsers(notification, ccUsers);
+                var bccUsers = notification.Bcc.Cast<IUser>().ToList();
+                RemoveInvalidUsers(notification, bccUsers);
+
                 Email<INotificationEmail> email = new Email<INotificationEmail>()
                 {
-                    BCC = notification.Bcc.Select(user => user.Email).Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
-                    CC = notification.CC.Select(user => user.Email).Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
+                    BCC = bccUsers.Select(user => user.Email).Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
+                    CC = ccUsers.Select(user => user.Email).Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
                     To = toList.Where(emailAddress => !String.IsNullOrWhiteSpace(emailAddress)).ToList(),
                     Subject = notification.Subject,
                     Model = notificationEmail
@@ -313,6 +355,34 @@ namespace Joe.Business.Notification
                 }
                 if (email.To.Count() > 0 || email.BCC.Count() > 0 || email.CC.Count() > 0)
                     emailProvider.SendMail(email);
+            }
+        }
+
+        private static void CheckOwner<T>(INotification notification, T target, TContext context, List<IUser> inList)
+        {
+            var toList = inList.Select(user => user.ID);
+            if (notification.Owner != null)
+            {
+                foreach (var owner in notification.Owner.Split(','))
+                {
+                    var ownerInfo = Reflection.ReflectionHelper.TryGetEvalPropertyInfo(typeof(T), owner);
+                    var ownerValue = Reflection.ReflectionHelper.GetEvalProperty(target, owner);
+                    if (ownerInfo != null)
+                    {
+                        if (typeof(IUser).IsAssignableFrom(ownerInfo.PropertyType))
+                        {
+                            var iUser = ownerValue as IUser;
+                            if (iUser != null && !String.IsNullOrWhiteSpace(iUser.Email) && !toList.Contains(iUser.ID))
+                                inList.Add(iUser);
+                        }
+                        else if (ownerInfo.PropertyType == typeof(String))
+                        {
+                            var user = context.GetIDbSet<User>().Find(ownerValue);
+                            if (user != null && !String.IsNullOrWhiteSpace(user.Email) && !toList.Contains(user.ID))
+                                inList.Add(user);
+                        }
+                    }
+                }
             }
         }
 

@@ -13,6 +13,7 @@ namespace Joe.Business
     public class DynamicFilterAttribute : Attribute
     {
         private string Filter { get; set; }
+        public String Condition { get; set; }
 
         /// <summary>
         /// 
@@ -27,10 +28,12 @@ namespace Joe.Business
         {
             var filters = Filter.Split(':');
             String builtFilter = null;
-            for (int i = 2; i < filters.Length; i = i + 3)
+            for (int i = 2; i < filters.Length; i = i + 4)
             {
                 if (builtFilter != null)
                     builtFilter += ':';
+                if (i > 2)
+                    builtFilter += filters[i - 3] + ':';
                 builtFilter += filters[i - 2] + ':';
                 builtFilter += filters[i - 1] + ':';
 

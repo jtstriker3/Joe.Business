@@ -41,21 +41,21 @@ namespace Joe.Business.Report
             return reportMethod.Invoke(this, new Object[] { report, false });
         }
 
-        public virtual IEnumerable GetSingleList<TRepository>(IReport report)
-            where TRepository : IDBViewContext, new()
+        public virtual IEnumerable GetSingleList<TContext>(IReport report)
+            where TContext : IDBViewContext, new()
         {
-            var reportMethod = this.GetType().GetMethod("RunReport");
-            reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ListView, typeof(TRepository));
-            return (IEnumerable)reportMethod.Invoke(this, new Object[] { report, true });
+            var reportMethod = this.GetType().GetMethod("GetFilterSingleListGeneric");
+            reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ListView, typeof(TContext));
+            return (IEnumerable)reportMethod.Invoke(this, new Object[] { report.ReportRepo });
         }
 
-        public virtual Object RunReport<TModel, TViewModel, TRepository>(IReport report, Boolean listOverride = false)
-            where TRepository : class, IDBViewContext, new()
+        public virtual Object RunReport<TModel, TViewModel, TContext>(IReport report, Boolean listOverride = false)
+            where TContext : class, IDBViewContext, new()
             where TModel : class, new()
             where TViewModel : class, new()
         {
 
-            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(report.ReportRepo);
+            IRepository<TModel, TViewModel, TContext> repo = Repository<TModel, TViewModel, TContext>.CreateRepo(report.ReportRepo);
 
             if (!listOverride)
             {
@@ -89,7 +89,7 @@ namespace Joe.Business.Report
                 filter.SetFilterValue(dynamicFilterObj);
 
             if (report.Single && !listOverride)
-                return repo.GetWithFilters(dynamicFilterObj, false, report.SingleID.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries));
+                return repo.GetWithFilters(dynamicFilterObj, report.SingleID.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries));
             else
                 return repo.Get(setCrudOverride: false, dynamicFilter: dynamicFilterObj);
         }
@@ -108,6 +108,17 @@ namespace Joe.Business.Report
                 var context = new TRepository();
                 return context.GetIQuery(filter.Model).Map(filter.ListView);
             }
+        }
+
+        public virtual IEnumerable GetFilterSingleListGeneric<TModel, TViewModel, TRepository>(Type repositoryType)
+            where TRepository : class, IDBViewContext, new()
+            where TModel : class, new()
+            where TViewModel : class, new()
+        {
+
+            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(repositoryType);
+
+            return repo.Get(setCrudOverride: false);
         }
 
         public virtual IEnumerable GetFilterValuesGeneric<TModel, TViewModel, TRepository>(IReportFilter filter)
@@ -230,13 +241,16 @@ namespace Joe.Business.Report
             {
                 if (ReportViewType.IsAssignableFrom(reportView.GetType()))
                 {
-                    var typedValue = Convert.ChangeType(Value, FilterType);
                     var useFilterValue = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(ReportViewType, ReportFilterAttribute.FilterPropertyName + "Active");
 
                     if (useFilterValue != null && useFilterValue.PropertyType == typeof(Boolean) && Value != null)
                         Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName + "Active", true);
 
-                    Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName, typedValue);
+                    if (Value != null)
+                    {
+                        var typedValue = Convert.ChangeType(Value, FilterType);
+                        Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName, typedValue);
+                    }
                 }
                 else
                     throw new Exception("Report View must be of Type of the Passed in Report View Type");
@@ -268,6 +282,12 @@ namespace Joe.Business.Report
             {
                 return Info != null ? Info.GetCustomAttribute<DisplayAttribute>() : null;
             }
+        }
+
+        public Boolean IsOptional()
+        {
+            var optionalProperty = this.ReportViewType.GetProperty(this.PropertyName + "Active");
+            return optionalProperty != null;
         }
     }
 }

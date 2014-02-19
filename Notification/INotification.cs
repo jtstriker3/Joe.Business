@@ -20,5 +20,7 @@ namespace Joe.Business.Notification
         String Subject { get; set; }
         String ShortMessage { get; set; }
         String Owner { get; set; }
+        string SecurityGroups { get; set; }
+        string SecurityAreas { get; set; }
     }
 }

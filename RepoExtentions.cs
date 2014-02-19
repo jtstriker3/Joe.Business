@@ -8,6 +8,8 @@ using Joe.Map;
 using System.Collections;
 using System.Text;
 using Joe.MapBack;
+using System.Data.Entity.Core.Objects;
+using System.Linq.Expressions;
 
 namespace Joe.Business
 {
@@ -22,9 +24,9 @@ namespace Joe.Business
         }
 
         public static Object[] GetTypedIDs<TModel, TViewModel, TRepository>(this IRepository<TModel, TViewModel, TRepository> repo, params Object[] ids)
-            where TModel : class, new()
+            where TModel : class
             where TViewModel : class, new()
-            where TRepository : class, IDBViewContext, new()
+            where TRepository : IDBViewContext, new()
         {
 
             return GetTypedIDs<TModel, TViewModel, TRepository>(ids);
@@ -118,6 +120,70 @@ namespace Joe.Business
                     if (vmh.ViewMapping.Key)
                         yield return new Tuple<PropertyInfo, Object>(info, info.GetValue(viewModel));
             }
+        }
+
+        public static IEnumerable<PropertyInfo> GetKeyMembers<TViewModel, TModel>()
+        {
+            foreach (PropertyInfo info in typeof(TViewModel).GetProperties())
+            {
+                ViewMappingHelper vmh = new ViewMappingHelper(info, typeof(TModel));
+                if (vmh.ViewMapping != null)
+                    if (vmh.ViewMapping.Key)
+                        yield return info;
+            }
+        }
+
+        internal static TEntity Find<TEntity, TViewModel>(this IQueryable<TEntity> source, params object[] keyValues)
+        {
+            var keys = GetKeyMembers<TEntity, TViewModel>();
+
+            var parameterExpression = Expression.Parameter(typeof(TEntity), typeof(TEntity).Name);
+
+            Expression compare = null;
+            var count = 0;
+            foreach (var key in keys)
+            {
+
+                Expression compareSingle = Expression.Property(parameterExpression, key.Name);
+                compareSingle = Expression.Equal(compareSingle, Expression.Constant(keyValues[count]));
+                if (count > 0)
+                    compare = Expression.And(compare, compareSingle);
+                else
+                    compare = compareSingle;
+                count++;
+            }
+
+            var lambda = (Expression<Func<TEntity, Boolean>>)Expression.Lambda(compare, new ParameterExpression[] { parameterExpression });
+            return source.Single(lambda);
+        }
+
+        public static IQueryable<TModel> BuildIncludeMappings<TModel>(this IQueryable<TModel> source, params String[] includeMappings)
+            where TModel : class
+        {
+            foreach (var mapping in includeMappings)
+                source = source.Include(mapping);
+
+            return source;
+        }
+
+        public static T ShallowClone<T>(this T objectToClone)
+        {
+            var newObject = (T)Expression.Lambda(Expression.Block(Expression.New(typeof(T)))).Compile().DynamicInvoke();
+
+            foreach (var prop in typeof(T).GetProperties())
+            {
+                var value = prop.GetValue(objectToClone);
+                if (value != null)
+                {
+                    //if (prop.PropertyType.ImplementsIEnumerable())
+                    //{
+                    //    value = ((IEnumerable)value).AsQueryable().AsNoTracking();
+                    //}
+                    prop.SetValue(newObject, value);
+                }
+            }
+
+            return newObject;
         }
     }
 }

@@ -8,20 +8,53 @@ namespace Joe.Business.Configuration
 {
     public class BusinessConfigurationSection : ConfigurationSection
     {
-        [ConfigurationProperty("DefaultCultures", DefaultValue = "en-US")]
-        public String DefaultCultures { get; set; }
+        [ConfigurationProperty("defaultCultures", DefaultValue = "en-US")]
+        public String DefaultCultures
+        {
+            get
+            {
+                return (String)this["defaultCultures"];
+            }
+            set
+            {
+                this["defaultCultures"] = value;
+            }
+        }
 
 
         [ConfigurationProperty("cacheDuration", DefaultValue = "8")]
-        public int CacheDuration { get; set; }
+        public int CacheDuration
+        {
+            get
+            {
+                return Convert.ToInt32(this["cacheDuration"]);
+            }
+            set
+            {
+                this["cacheDuration"] = value;
+            }
+        }
+
+        [ConfigurationProperty("setAllValuesForList", DefaultValue = "false")]
+        public Boolean SetAllValuesForList
+        {
+            get
+            {
+                return Convert.ToBoolean(this["setAllValuesForList"]);
+            }
+            set
+            {
+                this["setAllValuesForList"] = value;
+            }
+        }
 
         public static BusinessConfigurationSection Instance
         {
             get
             {
-               var configuration = ConfigurationManager.GetSection("BusinessConfiguration") as BusinessConfigurationSection;
+                var configuration = ConfigurationManager.GetSection("BusinessConfiguration") as BusinessConfigurationSection;
 
-               return configuration ?? new BusinessConfigurationSection() { DefaultCultures = "en-US", CacheDuration = 8 };
+                return configuration ?? new BusinessConfigurationSection() { DefaultCultures = "en-US", CacheDuration = 8 };
             }
         }
     }

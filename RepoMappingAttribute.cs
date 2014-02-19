@@ -14,6 +14,7 @@ namespace Joe.Business
         String Method { get; set; }
         List<String> Parameters { get; set; }
         Type ModelCast { get; set; }
+        public String Condition { get; set; }
 
         /// <summary>
         /// This will invoke a method on the repository object to set a Property in the View Model
@@ -94,6 +95,7 @@ namespace Joe.Business
         List<String> Parameters { get; set; }
         public Type Repository { get; private set; }
         public Type Model { get; private set; }
+        public String Condition { get; set; }
 
         public NestedRepoMappingAttribute(Type repository, Type model, params String[] parameters)
         {
@@ -155,6 +157,8 @@ namespace Joe.Business
         public Type Model { get; private set; }
         public String IncludedList { get; set; }
         public String Filter { get; set; }
+        public Boolean SetForList { get; set; }
+        public String Condition { get; set; }
 
         /// <summary>
         /// Maps Possible Values of An Entity Type. This will use the repository to map the entities.
@@ -189,7 +193,7 @@ namespace Joe.Business
             IncludedList = includedList;
         }
 
-         /// <summary>
+        /// <summary>
         /// This will map the entities directly from the context.
         /// </summary>
         /// <param name="model">Type of Entity to map from</param>
@@ -197,6 +201,7 @@ namespace Joe.Business
         public AllValuesAttribute(Type model)
         {
             Model = model;
+            SetForList = Configuration.BusinessConfigurationSection.Instance.SetAllValuesForList;
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System;
 namespace Joe.Business.Notification
 {
-    interface IUser
+    public interface IUser
     {
         System.Collections.Generic.List<Notification> BCCNotifications { get; set; }
         System.Collections.Generic.List<Notification> CCNotifications { get; set; }

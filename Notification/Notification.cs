@@ -24,5 +24,13 @@ namespace Joe.Business.Notification
         public String Subject { get; set; }
         public String ShortMessage { get; set; }
         public String Owner { get; set; }
+        /// <summary>
+        /// Comma Delimited List
+        /// </summary>
+        public string SecurityGroups { get; set; }
+        /// <summary>
+        /// Comma Delimited List
+        /// </summary>
+        public string SecurityAreas { get; set; }
     }
 }

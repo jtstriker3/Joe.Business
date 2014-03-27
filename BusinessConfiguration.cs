@@ -26,6 +26,7 @@ namespace Joe.Business
         /// If set to false out Count var will remain 0. If true (Default) the count of the list will be returned
         /// </summary>
         public Boolean SetCount { get; set; }
+        public Boolean UseCacheForSingleItem { get; set; }
         public Type SecurityType { get; set; }
         public Type DefualtSecurityType { get; set; }
         public IEnumerable<String> IncludeMappings { get; set; }

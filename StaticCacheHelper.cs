@@ -47,9 +47,9 @@ namespace Joe.Business
             return lambda.Compile().DynamicInvoke();
         }
 
-        public static IEnumerable<TViewModel> GetCache<TViewModel>()
+        public static IEnumerable<TViewModel> GetListCache<TModel, TViewModel>()
         {
-            return (IEnumerable<TViewModel>)Cache.Instance.Get(typeof(TViewModel).Name);
+            return (IEnumerable<TViewModel>)Cache.Instance.Get(typeof(TViewModel).FullName+typeof(TModel).FullName+"List");
         }
 
         public static void Flush(String key)

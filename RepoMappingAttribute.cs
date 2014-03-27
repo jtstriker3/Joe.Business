@@ -14,6 +14,7 @@ namespace Joe.Business
         String Method { get; set; }
         List<String> Parameters { get; set; }
         Type ModelCast { get; set; }
+        public Type HelperClass { get; set; }
         public String Condition { get; set; }
 
         /// <summary>
@@ -27,10 +28,29 @@ namespace Joe.Business
             Parameters = parameters.ToList();
         }
 
+        /// <summary>
+        /// Init RepoMapping Attribute
+        /// </summary>
+        /// <param name="method">Method To Call</param>
+        /// <param name="modelCast">Cast the model to this type if trying to call a method that takes its parent type</param>
+        /// <param name="parameters">Properties from View Model to pass in as parameters</param>
         public RepoMappingAttribute(String method, Type modelCast, params String[] parameters)
             : this(method, parameters)
         {
             ModelCast = modelCast;
+        }
+
+        /// <summary>
+        /// Init RepoMapping Attribute
+        /// </summary>
+        /// <param name="method">Method To Call</param>
+        /// <param name="modelCast">Cast the model to this type if trying to call a method that takes its parent type Pass null to ignore this</param>
+        /// <param name="helperClass">Class to call if Method is not part of repository</param>
+        /// <param name="parameters">Properties from View Model to pass in as parameters</param>
+        public RepoMappingAttribute(String method, Type modelCast, Type helperClass, params String[] parameters)
+            : this(method, modelCast, parameters)
+        {
+            HelperClass = helperClass;
         }
 
         public Boolean HasMethod
@@ -48,7 +68,8 @@ namespace Joe.Business
         /// <returns></returns>
         public MethodInfo GetMethodInfo(IRepository repo, Object viewModel, Type model)
         {
-            return repo.GetType().GetMethod(Method, this.GetParametersTypes(viewModel, model).ToArray());
+            var type = HelperClass ?? repo.GetType();
+            return type.GetMethod(Method, this.GetParametersTypes(viewModel, model).ToArray());
         }
 
         /// <summary>

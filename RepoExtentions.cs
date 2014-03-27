@@ -133,9 +133,9 @@ namespace Joe.Business
             }
         }
 
-        internal static TEntity Find<TEntity, TViewModel>(this IQueryable<TEntity> source, params object[] keyValues)
+        internal static TEntity Find<TEntity, TViewModel>(this IQueryable<TEntity> source, Boolean database, params object[] keyValues)
         {
-            var keys = GetKeyMembers<TEntity, TViewModel>();
+            var keys = GetKeyMembers<TViewModel, TEntity>();
 
             var parameterExpression = Expression.Parameter(typeof(TEntity), typeof(TEntity).Name);
 
@@ -145,7 +145,16 @@ namespace Joe.Business
             {
 
                 Expression compareSingle = Expression.Property(parameterExpression, key.Name);
-                compareSingle = Expression.Equal(compareSingle, Expression.Constant(keyValues[count]));
+                var constantExpression = Expression.Constant(keyValues[count]);
+                if (!database && key.PropertyType == typeof(String))
+                {
+                    MethodInfo methodInfo = typeof(String).GetMethod("ToLower", new Type[] { });
+                    compareSingle = Expression.Call(compareSingle, methodInfo);
+
+                    constantExpression = Expression.Constant(keyValues[count].ToString().ToLower());
+                }
+
+                compareSingle = Expression.Equal(compareSingle, constantExpression);
                 if (count > 0)
                     compare = Expression.And(compare, compareSingle);
                 else
@@ -154,7 +163,7 @@ namespace Joe.Business
             }
 
             var lambda = (Expression<Func<TEntity, Boolean>>)Expression.Lambda(compare, new ParameterExpression[] { parameterExpression });
-            return source.Single(lambda);
+            return source.SingleOrDefault(lambda);
         }
 
         public static IQueryable<TModel> BuildIncludeMappings<TModel>(this IQueryable<TModel> source, params String[] includeMappings)

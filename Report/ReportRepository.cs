@@ -14,7 +14,7 @@ namespace Joe.Business.Report
 {
     public class ReportRepository : Joe.Business.Report.IReportRepository
     {
-        private IEnumerable<Report> _reports;
+        private IEnumerable<IReport> _reports;
         public virtual IEnumerable<IReport> GetReports()
         {
             _reports = _reports ?? AppDomain.CurrentDomain.GetAssemblies().SelectMany(assembly =>
@@ -33,8 +33,11 @@ namespace Joe.Business.Report
         {
             var report = this.GetReport(inReport.Name);
             inReport.UiHint = report.UiHint;
+            inReport.Chart = report.Chart;
+            inReport.ChartType = report.ChartType;
             report.MapBack(inReport);
             inReport.Filters = report.Filters;
+            inReport.ReportView = report.ReportView;
             var reportMethod = this.GetType().GetMethod("RunReport");
             reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ReportView, typeof(TRepository));
 
@@ -63,6 +66,8 @@ namespace Joe.Business.Report
                 {
                     foreach (var filter in report.Filters)
                         filter.SetFilterValue(viewModelEventArgs.ViewModel);
+                    //Remap Repo Functions after Setting Filters
+                    repo.MapRepoFunction(viewModelEventArgs.ViewModel);
                 };
 
                 repo.ViewModelListMapped += (object sender, ViewModelListEventArgs<TViewModel> viewModelListEventArgs) =>
@@ -74,10 +79,15 @@ namespace Joe.Business.Report
                     foreach (var filter in filtersNotAppliedToList)
                         foreach (var viewModel in viewModels)
                             if (!String.IsNullOrEmpty(filter.Value))
+                            {
                                 filter.SetFilterValue(viewModel);
+                            }
                     foreach (var filter in filtersAppliedToList)
                         if (!String.IsNullOrEmpty(filter.Value))
                             viewModels = filter.ApplyFilterToList(viewModels);
+
+                    foreach (var viewModel in viewModels)
+                        repo.MapRepoFunction(viewModel);
 
                     return viewModels.AsQueryable();
                 };
@@ -136,7 +146,7 @@ namespace Joe.Business.Report
 
     public class Report : Joe.Business.Report.IReport
     {
-        public Type ReportView { get; private set; }
+        public Type ReportView { get; set; }
         public String Name { get; set; }
         public String SingleID { get; set; }
         public String Description { get; private set; }
@@ -147,6 +157,9 @@ namespace Joe.Business.Report
         public IEnumerable<String> ListViewDisplayProperties { get; private set; }
         public IEnumerable SingleChoices { get; set; }
         public String UiHint { get; set; }
+        public Boolean Chart { get; set; }
+        public String Group { get; set; }
+        public ChartTypes ChartType { get; set; }
 
         //So MVC Can map back properties. This will not be valid until properties mapped to a report initilized with a Report Type
         public Report() { }
@@ -163,7 +176,9 @@ namespace Joe.Business.Report
             ListView = reportAttribute.ListView;
             ListViewDisplayProperties = reportAttribute.ListViewDisplayProperties;
             UiHint = reportAttribute.UiHint;
-
+            Chart = typeof(IChartReport).IsAssignableFrom(reportView) || typeof(IChartPoint).IsAssignableFrom(reportView);
+            Group = reportAttribute.Group;
+            ChartType = reportAttribute.ChartType;
         }
 
         private IEnumerable<ReportFilter> _filters;
@@ -237,23 +252,57 @@ namespace Joe.Business.Report
 
         public virtual void SetFilterValue(Object reportView)
         {
+            this.SetFilterValue(reportView, false);
+        }
+
+        public virtual void SetFilterValue(Object reportView, Boolean nestedView)
+        {
             if (!ReportFilterAttribute.IsListFilter)
             {
-                if (ReportViewType.IsAssignableFrom(reportView.GetType()))
+                if (ReportViewType.IsAssignableFrom(reportView.GetType()) || nestedView)
                 {
-                    var useFilterValue = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(ReportViewType, ReportFilterAttribute.FilterPropertyName + "Active");
+                    var type = reportView.GetType();
+                    var useFilterValue = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(type, ReportFilterAttribute.FilterPropertyName + "Active");
 
                     if (useFilterValue != null && useFilterValue.PropertyType == typeof(Boolean) && Value != null)
                         Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName + "Active", true);
 
                     if (Value != null)
                     {
-                        var typedValue = Convert.ChangeType(Value, FilterType);
-                        Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName, typedValue);
+                        var safeType = Nullable.GetUnderlyingType(FilterType) ?? FilterType;
+                        var typedValue = Convert.ChangeType(Value, safeType);
+                        var reportViewProperty = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(type, ReportFilterAttribute.FilterPropertyName);
+                        if (reportViewProperty != null && reportViewProperty.PropertyType == FilterType)
+                            Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName, typedValue);
                     }
+
+                    this.SetFilterValuesResursive(reportView);
                 }
                 else
                     throw new Exception("Report View must be of Type of the Passed in Report View Type");
+            }
+        }
+
+        protected virtual void SetFilterValuesResursive(Object reportView)
+        {
+            var type = reportView.GetType();
+            foreach (var prop in type.GetProperties().Where(prop => prop.PropertyType.ImplementsIEnumerable()))
+            {
+                var value = prop.GetValue(reportView);
+                if (value != null)
+                {
+                    if (prop.PropertyType.ImplementsIEnumerable())
+                    {
+                        var valueIEnumerable = (IEnumerable)value;
+
+                        foreach (var subView in valueIEnumerable)
+                            this.SetFilterValue(subView, true);
+                    }
+                    else
+                    {
+                        this.SetFilterValue(value, true);
+                    }
+                }
             }
         }
 

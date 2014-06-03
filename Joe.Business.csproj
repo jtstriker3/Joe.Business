@@ -46,7 +46,7 @@
     </Reference>
     <Reference Include="Joe.Caching, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Caching.1.0.1\lib\net40\Joe.Caching.dll</HintPath>
+      <HintPath>packages\Joe.Caching.1.0.7\lib\net40\Joe.Caching.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Init, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -54,19 +54,21 @@
     </Reference>
     <Reference Include="Joe.Map, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Map.1.0.4.8\lib\net40\Joe.Map.dll</HintPath>
+      <HintPath>packages\Joe.Map.1.0.4.11\lib\net40\Joe.Map.dll</HintPath>
     </Reference>
     <Reference Include="Joe.MapBack, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.MapBack.1.0.1.1\lib\net40\Joe.MapBack.dll</HintPath>
+      <HintPath>packages\Joe.MapBack.1.0.1.3\lib\net40\Joe.MapBack.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.Reflection, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Reflection.1.0.4\lib\net40\Joe.Reflection.dll</HintPath>
+    <Reference Include="Joe.Reflection">
+      <HintPath>packages\Joe.Reflection.1.0.7\lib\net40\Joe.Reflection.dll</HintPath>
     </Reference>
-    <Reference Include="Joe.Security, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="Joe.Security">
+      <HintPath>packages\Joe.Security.1.0.2.7\lib\net40\Joe.Security.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Security.1.0.2.5\lib\net40\Joe.Security.dll</HintPath>
+      <HintPath>packages\Newtonsoft.Json.6.0.3\lib\net40\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -101,6 +103,10 @@
     <Compile Include="RepoExtentions.cs" />
     <Compile Include="RepoMappingAttribute.cs" />
     <Compile Include="BusinessConfiguration.cs" />
+    <Compile Include="Report\ChartTypes.cs" />
+    <Compile Include="Report\IChartPoint.cs" />
+    <Compile Include="Report\IChartReport.cs" />
+    <Compile Include="Report\IPoint.cs" />
     <Compile Include="Repository.cs" />
     <Compile Include="DynamicFilter.cs" />
     <Compile Include="Email.cs" />

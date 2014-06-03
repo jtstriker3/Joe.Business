@@ -16,6 +16,7 @@ using Joe.Business.Notification;
 using Joe.Business.Configuration;
 using System.Threading.Tasks;
 using System.Threading;
+using Newtonsoft.Json;
 
 namespace Joe.Business
 {
@@ -476,7 +477,7 @@ namespace Joe.Business
         {
             try
             {
-                CachedResult<TModel, TViewModel> cachedResults = GetCachedResult(dyanmicFilters, ids);
+                CachedResult<TModel, TViewModel> cachedResults = GetCachedResult(dyanmicFilters, ids, this.Context);
 
                 if (cachedResults != null)
                 {
@@ -582,7 +583,7 @@ namespace Joe.Business
             catch (Exception ex)
             {
                 if (model != null)
-                    this.Context.ObjectContext.Refresh(System.Data.Entity.Core.Objects.RefreshMode.StoreWins, model);
+                    //this.Context.ObjectContext.Refresh(System.Data.Entity.Core.Objects.RefreshMode.StoreWins, model);
                 if (ex is ValidationException
                     || ex is DbEntityValidationException
                     || ex is DbUnexpectedValidationException)
@@ -698,7 +699,7 @@ namespace Joe.Business
                     if (this.NotificationProvider != null)
                         this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Delete, model, null, this.EmailProvider);
 
-                    var getModelArgs = new GetModelArgs(viewModel.GetIDs().ToArray(), null);
+                    var getModelArgs = new GetModelArgs(viewModel.GetIDs().ToArray(), null, this.Context);
                     this.FlushSingleItemAndListCache(viewModel, model, null);
                 }
                 else
@@ -775,7 +776,7 @@ namespace Joe.Business
             {
                 this.Source.Attach(model);
                 viewModel = model.Map<TModel, TViewModel>();
-                this.Context.ObjectContext.Detach(model);
+                this.Context.Detach(model);
             }
             else
                 viewModel = model.Map<TModel, TViewModel>();
@@ -1067,16 +1068,21 @@ namespace Joe.Business
         protected virtual void FlushSingleItemAndListCache(TViewModel viewModel, TModel model, Object dynamicFilters)
         {
             var ids = viewModel.GetIDs().ToArray();
-            var getModelArgs = new GetModelArgs(ids, dynamicFilters);
+            var getModelArgs = new GetModelArgs(ids, dynamicFilters, this.Context);
             var cacheResult = (CachedResult<TModel, TViewModel>)Caching.Cache.Instance.Get(CacheKey, getModelArgs);
             if (cacheResult != null)
                 cacheResult.Update(model, viewModel);
 
-            FlushTypeByFullName(typeof(TModel), dynamicFilters, ids);
+            FlushTypeByFullName(typeof(TModel), dynamicFilters, false, ids);
 
         }
 
         protected void FlushTypeByFullName(Type modelType, Object dynamicFilters = null, params Object[] ids)
+        {
+            FlushTypeByFullName(modelType, dynamicFilters, true, ids);
+        }
+
+        private void FlushTypeByFullName(Type modelType, Object dynamicFilters, Boolean flushNullFilter, params Object[] ids)
         {
             //Fire off in a new thread to user does not have to wait for what might be a large loop
             Action<Object[], Type> clearFilters = (Object[] modelIDs, Type type) =>
@@ -1085,11 +1091,14 @@ namespace Joe.Business
                 //Loop Through All Filters passed in for this model type and clear the cached value
                 foreach (var filter in filters)
                 {
-                    var getModelArgs = new GetModelArgs(modelIDs, filter);
+                    var getModelArgs = new GetModelArgs(modelIDs, filter, this.Context);
                     Joe.Caching.Cache.Instance.FlushMany(type.FullName, CacheKey, getModelArgs);
                 }
-
-
+                if (flushNullFilter)
+                {
+                    var getModelArgs = new GetModelArgs(modelIDs, null, this.Context);
+                    Joe.Caching.Cache.Instance.FlushMany(type.FullName, null, getModelArgs);
+                }
             };
             FlushListCache(modelType);
             Task.Factory.StartNew(() => clearFilters(ids, modelType));
@@ -1107,28 +1116,28 @@ namespace Joe.Business
 
         private CachedResult<TModel, TViewModel> GetCachedResultDelegate(GetModelArgs args)
         {
-            var context = this.CreateContext();
+            //var context = this.CreateContext();
             TModel model;
             if (this.GetIncludeMappings.Count() > 0)
-                model = context.GetIDbSet<TModel>().BuildIncludeMappings(this.GetIncludeMappings.ToArray()).Find<TModel, TViewModel>(true, this.GetTypedIDs(args.Ids));
+                model = args.Context.GetIDbSet<TModel>().BuildIncludeMappings(this.GetIncludeMappings.ToArray()).Find<TModel, TViewModel>(true, this.GetTypedIDs(args.Ids));
             else
-                model = context.GetIDbSet<TModel>().Find(this.GetTypedIDs(args.Ids));
+                model = args.Context.GetIDbSet<TModel>().Find(this.GetTypedIDs(args.Ids));
 
             if (model != null)
             {
+                //The First BO will be long lived. Since the context is disposed we must reset it;
+                this.Context = args.Context;
                 var viewModel = model.Map<TModel, TViewModel>(args.Filters);
                 this.LogFilter(args.Filters);
                 this.MapRepoFunction(viewModel);
-                context.ObjectContext.Detach(model);
-                context.Dispose();
+                args.Context.Detach(model);
                 return new CachedResult<TModel, TViewModel>(model, viewModel);
             }
-            context.Dispose();
             return null;
 
         }
 
-        private CachedResult<TModel, TViewModel> GetCachedResult(Object dyanmicFilters, Object[] ids)
+        private CachedResult<TModel, TViewModel> GetCachedResult(Object dyanmicFilters, Object[] ids, IDBViewContext context)
         {
             var cacheTimeout = this.Configuration.UseCacheForSingleItem ? Joe.Business.Configuration.BusinessConfigurationSection.Instance.CacheDuration : 0;
             CachedResult<TModel, TViewModel> cachedResults;
@@ -1137,7 +1146,7 @@ namespace Joe.Business
                 this.BeforeGet();
             //if (this.Configuration.GetListFromCache)
             //{
-            var modelIDs = new GetModelArgs(this.GetTypedIDs(ids), dyanmicFilters);
+            var modelIDs = new GetModelArgs(this.GetTypedIDs(ids), dyanmicFilters, context);
             cachedResults = (CachedResult<TModel, TViewModel>)Joe.Caching.Cache.Instance.Get(CacheKey, modelIDs);
 
             if (cachedResults == null)
@@ -1290,24 +1299,15 @@ namespace Joe.Business
     {
         public Object[] Ids { get; private set; }
         public Object Filters { get; set; }
+        [JsonIgnore]
+        public IDBViewContext Context { get; set; }
 
-        public GetModelArgs(Object[] ids, Object filters)
+        public GetModelArgs(Object[] ids, Object filters, IDBViewContext context)
         {
             Ids = ids;
             Filters = filters;
+            Context = context;
         }
 
-        public override int GetHashCode()
-        {
-            int hash = 0;
-
-            foreach (var item in Ids)
-                hash += item.GetHashCode();
-
-            if (Filters != null)
-                hash += Filters.GetHashCode();
-
-            return hash;
-        }
     }
 }

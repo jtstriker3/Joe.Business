@@ -15,6 +15,9 @@ namespace Joe.Business.Report
         public Type ListView { get; set; }
         public String UiHint { get; set; }
         public IEnumerable<String> ListViewDisplayProperties { get; private set; }
+        public String Group { get; set; }
+        public ChartTypes ChartType { get; set; }
+
         public Boolean Single
         {
             get

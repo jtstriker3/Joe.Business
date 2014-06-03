@@ -181,14 +181,17 @@ namespace Joe.Business
 
             foreach (var prop in typeof(T).GetProperties())
             {
-                var value = prop.GetValue(objectToClone);
-                if (value != null)
+                if (prop.CanWrite)
                 {
-                    //if (prop.PropertyType.ImplementsIEnumerable())
-                    //{
-                    //    value = ((IEnumerable)value).AsQueryable().AsNoTracking();
-                    //}
-                    prop.SetValue(newObject, value);
+                    var value = prop.GetValue(objectToClone);
+                    if (value != null)
+                    {
+                        //if (prop.PropertyType.ImplementsIEnumerable())
+                        //{
+                        //    value = ((IEnumerable)value).AsQueryable().AsNoTracking();
+                        //}
+                        prop.SetValue(newObject, value);
+                    }
                 }
             }
 

@@ -16,11 +16,14 @@ namespace Joe.Business.Report
         [ViewMapping(ReadOnly = true)]
         Type ReportRepo { get; }
         [ViewMapping(ReadOnly = true)]
-        Type ReportView { get; }
+        Type ReportView { get; set; }
         bool Single { get; }
         [ViewMapping(ReadOnly = true)]
         System.Collections.IEnumerable SingleChoices { get; set; }
         string SingleID { get; set; }
         String UiHint { get; set; }
+        Boolean Chart { get; set; }
+        String Group { get; set; }
+        ChartTypes ChartType { get; set; }
     }
 }

@@ -10,5 +10,7 @@ namespace Joe.Business.Report
         Type Model { get; }
         string Name { get; }
         bool Single { get; }
+        String Group { get; }
+        ChartTypes ChartType { get; }
     }
 }

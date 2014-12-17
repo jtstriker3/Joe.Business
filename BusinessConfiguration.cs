@@ -62,4 +62,12 @@ namespace Joe.Business
             IncludeMappings = includeMappings ?? new String[0];
         }
     }
+
+    public class CacheAttribute : Attribute 
+    {
+        public static Boolean HasCacheAttribute<TViewModel>()
+        {
+            return typeof(TViewModel).GetCustomAttribute<CacheAttribute>() != null;
+        }
+    }
 }

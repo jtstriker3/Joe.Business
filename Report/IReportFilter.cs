@@ -1,5 +1,7 @@
 ﻿using Joe.Map;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 namespace Joe.Business.Report
 {
     public interface IReportFilter
@@ -30,5 +32,8 @@ namespace Joe.Business.Report
         string Value { get; set; }
         [ViewMapping(ReadOnly = true)]
         string ValueProperty { get; set; }
+        string RepoListFilter { get; set; }
+        IEnumerable<String> GetValue();
+        bool GetDisplayFromContext { get; }
     }
 }

@@ -37,6 +37,8 @@ namespace Joe.Business.Report
                 return !String.IsNullOrEmpty(Operator);
             }
         }
+        public String RepoListFilter { get; set; }
+        public bool GetDisplayFromContext { get; set; }
 
         public ReportFilterAttribute(int order, String filterPropertyName, Type listView, Type listViewRepo, Type model, params String[] displayProperties)
         {
@@ -46,6 +48,7 @@ namespace Joe.Business.Report
             Model = model;
             DisplayProperties = displayProperties;
             Order = order;
+            GetDisplayFromContext = true;
         }
 
         public ReportFilterAttribute(int order, String filterPropertyName, Type listView, Type model, params String[] displayProperties)
@@ -55,12 +58,14 @@ namespace Joe.Business.Report
             Model = model;
             DisplayProperties = displayProperties;
             Order = order;
+            GetDisplayFromContext = true;
         }
 
         public ReportFilterAttribute(int order, String filterPropertyName)
         {
             FilterPropertyName = filterPropertyName;
             Order = order;
+            GetDisplayFromContext = true;
         }
     }
 }

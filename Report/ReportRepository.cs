@@ -8,6 +8,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 using System.Web;
 
 namespace Joe.Business.Report
@@ -19,7 +20,8 @@ namespace Joe.Business.Report
         {
             _reports = _reports ?? AppDomain.CurrentDomain.GetAssemblies().SelectMany(assembly =>
                                         assembly.GetTypes()).Where(type =>
-                                        type.GetCustomAttribute<ReportAttribute>() != null).Select(reportViewType => new Report(reportViewType));
+                                        type.GetCustomAttribute<ReportAttribute>() != null)
+                                        .Select(reportViewType => typeof(ChartReportAttribute).IsAssignableFrom(reportViewType.GetCustomAttribute<ReportAttribute>().GetType()) ? new ChartReport(reportViewType) : new Report(reportViewType));
 
             return _reports;
         }
@@ -29,19 +31,43 @@ namespace Joe.Business.Report
             return this.GetReports().Single(reprort => reprort.Name == name);
         }
 
-        public virtual Object Run<TRepository>(IReport inReport)
+        public virtual Object Run<TRepository>(IReport inReport, out IReport report)
         {
-            var report = this.GetReport(inReport.Name);
-            inReport.UiHint = report.UiHint;
-            inReport.Chart = report.Chart;
-            inReport.ChartType = report.ChartType;
+            report = this.GetReport(inReport.Name);
+            //inReport.UiHint = report.UiHint;
+            //inReport.Chart = report.Chart;
+            //inReport.ChartType = report.ChartType;
             report.MapBack(inReport);
-            inReport.Filters = report.Filters;
-            inReport.ReportView = report.ReportView;
-            var reportMethod = this.GetType().GetMethod("RunReport");
-            reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ReportView, typeof(TRepository));
+            //inReport.Filters = report.Filters;
+            //inReport.ReportView = report.ReportView;
 
-            return reportMethod.Invoke(this, new Object[] { report, false });
+            if (!report.IsCustomRepository)
+            {
+                var reportMethod = this.GetType().GetMethod("RunReport");
+                reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ReportView, typeof(TRepository));
+                return reportMethod.Invoke(this, new Object[] { report, false });
+            }
+            else
+            {
+                var reportMethod = this.GetType().GetMethod("RunCustomReport");
+                reportMethod = reportMethod.MakeGenericMethod(report.ReportView);
+                return reportMethod.Invoke(this, new Object[] { report });
+            }
+        }
+
+        public virtual Object RunCustomReport<TFilters>(IReport report)
+            where TFilters : new()
+        {
+            var repository = (ICustomRepository<TFilters>)Repository.CreateObject(report.ReportRepo);
+
+            var filters = new TFilters();
+            foreach (var filter in report.Filters)
+                filter.SetFilterValue(filters);
+
+            if (report.Chart)
+                ((IChartReport)report).SetYAxisPlotLines(filters);
+
+            return repository.RunReport(filters);
         }
 
         public virtual IEnumerable GetSingleList<TContext>(IReport report)
@@ -54,7 +80,7 @@ namespace Joe.Business.Report
 
         public virtual Object RunReport<TModel, TViewModel, TContext>(IReport report, Boolean listOverride = false)
             where TContext : class, IDBViewContext, new()
-            where TModel : class, new()
+            where TModel : class
             where TViewModel : class, new()
         {
 
@@ -98,6 +124,10 @@ namespace Joe.Business.Report
             foreach (var filter in report.Filters)
                 filter.SetFilterValue(dynamicFilterObj);
 
+            if (report.Chart)
+                ((IChartReport)report).SetYAxisPlotLines(dynamicFilterObj);
+
+
             if (report.Single && !listOverride)
                 return repo.GetWithFilters(dynamicFilterObj, report.SingleID.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries));
             else
@@ -116,13 +146,31 @@ namespace Joe.Business.Report
             else
             {
                 var context = new TRepository();
-                return context.GetIQuery(filter.Model).Map(filter.ListView);
+                return context.GetIPersistenceSet(filter.Model).Map(filter.ListView);
+            }
+        }
+
+        public virtual String GetFilterDisplay<TRepository>(IReportFilter filter)
+           where TRepository : IDBViewContext, new()
+        {
+            if (filter.ListViewRepo != null)
+            {
+                var getFilterMethod = this.GetType().GetMethod("GetFilterDisplayGeneric");
+                getFilterMethod = getFilterMethod.MakeGenericMethod(filter.Model, filter.ListView, typeof(TRepository));
+                return getFilterMethod.Invoke(this, new[] { filter }).ToString();
+            }
+            else
+            {
+                var context = new TRepository();
+                var selectedFilter = MapExtensions.Map(context.GetIPersistenceSet(filter.Model).Find(RepoExtentions.GetTypedIDs(filter.ListView, filter.GetValue().ToArray())), filter.ListView);
+
+                return BuildDisplay(filter, selectedFilter);
             }
         }
 
         public virtual IEnumerable GetFilterSingleListGeneric<TModel, TViewModel, TRepository>(Type repositoryType)
             where TRepository : class, IDBViewContext, new()
-            where TModel : class, new()
+            where TModel : class
             where TViewModel : class, new()
         {
 
@@ -133,20 +181,44 @@ namespace Joe.Business.Report
 
         public virtual IEnumerable GetFilterValuesGeneric<TModel, TViewModel, TRepository>(IReportFilter filter)
             where TRepository : class, IDBViewContext, new()
-            where TModel : class, new()
+            where TModel : class
             where TViewModel : class, new()
         {
 
             IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(filter.ListViewRepo);
 
-            return repo.Get(setCrudOverride: false);
+            return repo.Get(setCrudOverride: false, stringFilter: filter.RepoListFilter);
+        }
+
+        public virtual String GetFilterDisplayGeneric<TModel, TViewModel, TRepository>(IReportFilter filter)
+            where TRepository : class, IDBViewContext, new()
+            where TModel : class
+            where TViewModel : class, new()
+        {
+
+            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(filter.ListViewRepo);
+
+            var selectedFilter = repo.Get(null, false, filter.GetValue().ToArray());
+
+            return BuildDisplay(filter, selectedFilter);
+
+        }
+
+        protected String BuildDisplay<TViewModel>(IReportFilter filter, TViewModel selectedFilter)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            foreach (var propStr in filter.DisplayProperties)
+                builder.Append(typeof(TViewModel).GetProperty(propStr).GetValue(selectedFilter));
+
+            return builder.ToString();
         }
 
     }
 
     public class Report : Joe.Business.Report.IReport
     {
-        public Type ReportView { get; set; }
+        public Type ReportView { get; private set; }
         public String Name { get; set; }
         public String SingleID { get; set; }
         public String Description { get; private set; }
@@ -156,10 +228,11 @@ namespace Joe.Business.Report
         public Type ListView { get; private set; }
         public IEnumerable<String> ListViewDisplayProperties { get; private set; }
         public IEnumerable SingleChoices { get; set; }
-        public String UiHint { get; set; }
-        public Boolean Chart { get; set; }
-        public String Group { get; set; }
-        public ChartTypes ChartType { get; set; }
+        public String UiHint { get; private set; }
+        public Boolean Chart { get; private set; }
+        public String Group { get; private set; }
+        public Boolean IsCustomRepository { get; private set; }
+        public String SubGroup { get; private set; }
 
         //So MVC Can map back properties. This will not be valid until properties mapped to a report initilized with a Report Type
         public Report() { }
@@ -176,9 +249,11 @@ namespace Joe.Business.Report
             ListView = reportAttribute.ListView;
             ListViewDisplayProperties = reportAttribute.ListViewDisplayProperties;
             UiHint = reportAttribute.UiHint;
-            Chart = typeof(IChartReport).IsAssignableFrom(reportView) || typeof(IChartPoint).IsAssignableFrom(reportView);
+            Chart = typeof(IChartReport).IsAssignableFrom(this.GetType());
             Group = reportAttribute.Group;
-            ChartType = reportAttribute.ChartType;
+            SubGroup = reportAttribute.SubGroup;
+
+            IsCustomRepository = reportAttribute.IsCustomRepository;
         }
 
         private IEnumerable<ReportFilter> _filters;
@@ -200,6 +275,53 @@ namespace Joe.Business.Report
         }
     }
 
+    public class ChartReport : Report, IChartReport
+    {
+        public ChartTypes ChartType { get; private set; }
+        public Boolean ShowLabels { get; private set; }
+        public int LabelAngle { get; private set; }
+        public String LabelColor { get; private set; }
+        public String LabelAlign { get; private set; }
+        public int LabelX { get; private set; }
+        public int LabelY { get; private set; }
+        public bool LabelShadow { get; private set; }
+        public string LabelStyle { get; private set; }
+        public IEnumerable<PlotLine> YAxisPlotLines { get; private set; }
+        private ChartReportAttribute _reportAttribute { get; set; }
+        public int? Height { get; private set; }
+        public int? XRotation { get; private set; }
+        public String YAxisText { get; private set; }
+
+        public ChartReport()
+        {
+
+        }
+
+        public ChartReport(Type reportView)
+            : base(reportView)
+        {
+            var reportAttribute = reportView.GetCustomAttribute<ChartReportAttribute>();
+            _reportAttribute = reportAttribute;
+            ChartType = reportAttribute.ChartType;
+            ShowLabels = reportAttribute.ShowLabels;
+            LabelAngle = reportAttribute.LabelAngle;
+            LabelAlign = reportAttribute.LabelAlign;
+            LabelColor = reportAttribute.LabelColor;
+            LabelX = reportAttribute.LabelX;
+            LabelY = reportAttribute.LabelY;
+            LabelShadow = reportAttribute.LabelShadow;
+            LabelStyle = reportAttribute.LabelStyle;
+            Height = reportAttribute.Height == default(int) ? default(int?) : reportAttribute.Height;
+            XRotation = reportAttribute.XRotation == default(int) ? default(int?) : reportAttribute.XRotation;
+            YAxisText = reportAttribute.YAxisText;
+        }
+
+        public void SetYAxisPlotLines(Object filters)
+        {
+            YAxisPlotLines = _reportAttribute.GetYAxisPlotLines(filters);
+        }
+    }
+
     public class ReportFilter : Joe.Business.Report.IReportFilter
     {
         private Type ReportViewType { get; set; }
@@ -216,6 +338,8 @@ namespace Joe.Business.Report
         public Boolean IsListFilter { get; private set; }
         public Boolean IsValueFilter { get; private set; }
         public IEnumerable ListValues { get; set; }
+        public String RepoListFilter { get; set; }
+        public bool GetDisplayFromContext { get; private set; }
         /// <summary>
         /// Set this to =, !=, > ect.
         /// This is only valid on Reports that are not Single Focued
@@ -237,6 +361,8 @@ namespace Joe.Business.Report
             ValueProperty = reportFilterAttribute.ValueProperty;
             IsListFilter = reportFilterAttribute.IsListFilter;
             IsValueFilter = reportFilterAttribute.IsValueFilter;
+            RepoListFilter = reportFilterAttribute.RepoListFilter;
+            GetDisplayFromContext = reportFilterAttribute.GetDisplayFromContext;
 
         }
 
@@ -337,6 +463,11 @@ namespace Joe.Business.Report
         {
             var optionalProperty = this.ReportViewType.GetProperty(this.PropertyName + "Active");
             return optionalProperty != null;
+        }
+
+        public IEnumerable<String> GetValue()
+        {
+            return Value.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries);
         }
     }
 }

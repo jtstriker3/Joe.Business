@@ -38,7 +38,7 @@ namespace Joe.Business.Resource
             Func<List<TResource>> getResouces = () =>
             {
                 var context = new TContext();
-                var resourceList = context.GetIDbSet<TResource>();
+                var resourceList = context.GetIPersistenceSet<TResource>();
                 if (resourceList == null)
                     throw new Exception("Type TResource must be part of your Context");
 

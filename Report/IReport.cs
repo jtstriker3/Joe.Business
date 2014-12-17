@@ -12,18 +12,20 @@ namespace Joe.Business.Report
         System.Collections.Generic.IEnumerable<string> ListViewDisplayProperties { get; }
         [ViewMapping(ReadOnly = true)]
         Type Model { get; }
+        [ViewMapping(ReadOnly = true)]
         string Name { get; set; }
         [ViewMapping(ReadOnly = true)]
         Type ReportRepo { get; }
         [ViewMapping(ReadOnly = true)]
-        Type ReportView { get; set; }
+        Type ReportView { get; }
         bool Single { get; }
         [ViewMapping(ReadOnly = true)]
         System.Collections.IEnumerable SingleChoices { get; set; }
         string SingleID { get; set; }
-        String UiHint { get; set; }
-        Boolean Chart { get; set; }
-        String Group { get; set; }
-        ChartTypes ChartType { get; set; }
+        String UiHint { get; }
+        Boolean Chart { get; }
+        String Group { get; }
+        String SubGroup { get; }
+        Boolean IsCustomRepository { get; }
     }
 }

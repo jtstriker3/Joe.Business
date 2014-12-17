@@ -12,5 +12,7 @@ namespace Joe.Business.Report
         Type Model { get; }
         string Operator { get; set; }
         string ValueProperty { get; set; }
+        string RepoListFilter { get; set; }
+        bool GetDisplayFromContext { get; set; }
     }
 }

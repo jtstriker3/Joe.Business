@@ -2,50 +2,57 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
-using System.Data.Entity;
 using System.Reflection;
 using Joe.Map;
 using System.Collections;
 using System.Text;
 using Joe.MapBack;
-using System.Data.Entity.Core.Objects;
 using System.Linq.Expressions;
+using System.Data.Entity;
 
 namespace Joe.Business
 {
     public static class RepoExtentions
     {
-        public static IEnumerable<Type> GetKeyTypes<TModel, TViewModel, TRepository>(this IRepository<TModel, TViewModel, TRepository> repo)
+        public static IEnumerable<Type> GetKeyTypes<TModel, TViewModel>(this IRepository<TModel, TViewModel> repo)
             where TModel : class, new()
             where TViewModel : class, new()
-            where TRepository : class, IDBViewContext, new()
         {
-            return GetKeyTypes<TModel, TViewModel, TRepository>();
+            return GetKeyTypes<TViewModel>();
         }
 
-        public static Object[] GetTypedIDs<TModel, TViewModel, TRepository>(this IRepository<TModel, TViewModel, TRepository> repo, params Object[] ids)
+        public static Object[] GetTypedIDs<TModel, TViewModel>(this IRepository<TModel, TViewModel> repo, params Object[] ids)
             where TModel : class
             where TViewModel : class, new()
-            where TRepository : IDBViewContext, new()
         {
 
-            return GetTypedIDs<TModel, TViewModel, TRepository>(ids);
+            return GetTypedIDs<TViewModel>(ids);
         }
 
-        public static IEnumerable<Type> GetKeyTypes<TModel, TViewModel, TRepository>()
+        public static IEnumerable<Type> GetKeyTypes<TViewModel>()
         {
-            foreach (PropertyInfo info in typeof(TViewModel).GetProperties())
+            return GetKeyTypes(typeof(TViewModel));
+        }
+
+        public static IEnumerable<Type> GetKeyTypes(Type viewModelType)
+        {
+            foreach (PropertyInfo info in viewModelType.GetProperties())
             {
-                var customAttr = new Joe.Map.ViewMappingHelper(info, typeof(TViewModel)).ViewMapping;
+                var customAttr = new Joe.Map.ViewMappingHelper(info, viewModelType).ViewMapping;
                 if (customAttr != null && customAttr.Key)
                     yield return info.PropertyType;
             }
         }
 
-        public static Object[] GetTypedIDs<TModel, TViewModel, TRepository>(params Object[] ids)
+        public static Object[] GetTypedIDs<TViewModel>(params Object[] ids)
+        {
+            return GetTypedIDs(typeof(TViewModel), ids);
+        }
+
+        public static Object[] GetTypedIDs(Type viewModelType, params Object[] ids)
         {
             var idList = ids.ToList();
-            var idTypesList = GetKeyTypes<TModel, TViewModel, TRepository>().ToList();
+            var idTypesList = GetKeyTypes(viewModelType).ToList();
             var typedIDs = new List<Object>();
             for (int i = 0; i < idList.Count; i++)
             {
@@ -197,5 +204,14 @@ namespace Joe.Business
 
             return newObject;
         }
+
+        public static String GetGlobalResource(this String name)
+        {
+            var resourceProvider = Joe.Business.Resource.ResourceProvider.ProviderInstance;
+            if (resourceProvider != null)
+                return resourceProvider.GetResource(name, "Global");
+            return name;
+        }
+
     }
 }

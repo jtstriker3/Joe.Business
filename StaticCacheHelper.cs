@@ -15,6 +15,8 @@ namespace Joe.Business
 {
     public static class StaticCacheHelper
     {
+        public static MethodInfo _getIPersistenceSetGenericMethod;
+        public static MethodInfo _mapMehtod;
         public static List<Tuple<Type, Type>> CacheTypeDict { get; set; }
 
         public static void Init<TRepository>() where TRepository : IDBViewContext, new()
@@ -34,8 +36,11 @@ namespace Joe.Business
         /// <returns></returns>
         public static Object AddCacheItem<TContext>(Tuple<Type, Type> cachedPair) where TContext : IDBViewContext, new()
         {
-            var source = new TContext().GetIQuery(cachedPair.Item1);
-            var method = typeof(MapExtensions).GetMethods().Single(m => m.Name == "MapDBView"
+
+            //var getIPersistenceSetGenericMethod = _getIPersistenceSetGenericMethod ?? typeof(TContext).GetMethods().Where(m => m.Name == "GetIPersistenceSet" && m.IsGenericMethod).First();
+            //var genericIPersistenceSetGenericMethod = getIPersistenceSetGenericMethod.MakeGenericMethod(cachedPair.Item1);
+            var source = new TContext().GetGenericQueryable(cachedPair.Item1); //genericIPersistenceSetGenericMethod.Invoke(new TContext(), null);
+            var method = _mapMehtod ?? typeof(MapExtensions).GetMethods().Single(m => m.Name == "Map"
                 && m.IsGenericMethod == true
                 && m.GetParameters().First().ParameterType.IsGenericType == true
                 && m.GetParameters().First().ParameterType.GetGenericTypeDefinition() == typeof(IQueryable<>)
@@ -49,7 +54,7 @@ namespace Joe.Business
 
         public static IEnumerable<TViewModel> GetListCache<TModel, TViewModel>()
         {
-            return (IEnumerable<TViewModel>)Cache.Instance.Get(typeof(TViewModel).FullName+typeof(TModel).FullName+"List");
+            return (IEnumerable<TViewModel>)Cache.Instance.Get(typeof(TViewModel).FullName + typeof(TModel).FullName + "List");
         }
 
         public static void Flush(String key)

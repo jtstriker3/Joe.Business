@@ -17,6 +17,7 @@ using Joe.Business.Configuration;
 using System.Threading.Tasks;
 using System.Threading;
 using Newtonsoft.Json;
+using Joe.Business.Approval;
 
 namespace Joe.Business
 {
@@ -28,6 +29,7 @@ namespace Joe.Business
         public abstract IEnumerable Get(String filter = null);
         public abstract IDBViewContext CreateContext();
         public static ISecurityFactory _securityFactory;
+        protected internal abstract IDBViewContext Context { get; set; }
         public static ISecurityFactory RepoSecurityFactory
         {
             get
@@ -41,7 +43,6 @@ namespace Joe.Business
             }
 
         }
-
         /// <summary>
         /// 
         /// </summary>
@@ -59,9 +60,9 @@ namespace Joe.Business
 
             return repo;
         }
-        public static IRepository CreateRepo(Type RepositoryType, Type model, Type viewModel, Type repository)
+        public static IRepository CreateRepo(Type RepositoryType, Type model, Type viewModel, Type context)
         {
-            var genericRepo = typeof(Repository<,,>).MakeGenericType(model, viewModel, repository);
+            var genericRepo = typeof(Repository<,,>).MakeGenericType(model, viewModel, context);
             var method = genericRepo.GetMethod("CreateRepo");
             var repo = (IRepository)method.Invoke(null, new Object[] { RepositoryType });
 
@@ -76,19 +77,33 @@ namespace Joe.Business
 
             return lambdaExpression.Compile().DynamicInvoke();
         }
+
+        internal IEnumerable<String> GetIncludeMappings { get; set; }
+        protected static Dictionary<String, Object> FilterDictionary = new Dictionary<string, object>();
+        internal void LogFilter(Object filter)
+        {
+            if (filter != null)
+            {
+                var key = this.GetFilterKey(filter);
+
+                if (!FilterDictionary.ContainsKey(key))
+                    FilterDictionary.Add(key, filter);
+            }
+        }
+        protected abstract String GetFilterKey(Object filter);
+
     }
 
-    public abstract class Repository<TModel, TViewModel, TContext> : Repository, IRepository<TModel, TViewModel, TContext>
+    public abstract class Repository<TModel, TViewModel> : Repository, IRepository<TModel, TViewModel>
         where TModel : class
         where TViewModel : class, new()
-        where TContext : IDBViewContext, new()
     {
-        private IDbSet<TModel> _source;
-        protected virtual IDbSet<TModel> Source
+        private IPersistenceSet<TModel> _source;
+        protected virtual IPersistenceSet<TModel> Source
         {
             get
             {
-                return _source ?? this.Context.GetIDbSet<TModel>();
+                return _source ?? this.Context.GetIPersistenceSet<TModel>();
             }
             set { _source = value; }
         }
@@ -97,7 +112,7 @@ namespace Joe.Business
         protected INotificationProvider NotificationProvider { get; set; }
         protected IEmailProvider EmailProvider { get; set; }
         private IDBViewContext _repository;
-        protected IDBViewContext Context
+        protected internal override IDBViewContext Context
         {
             get
             {
@@ -109,22 +124,6 @@ namespace Joe.Business
                 _repository = value;
             }
         }
-        protected IEnumerable<String> GetIncludeMappings { get; private set; }
-        protected String CacheKey
-        {
-            get
-            {
-                return typeof(TViewModel).FullName + typeof(TModel).FullName;
-            }
-        }
-        protected String ListCacheKey
-        {
-            get
-            {
-                return typeof(TViewModel).FullName + typeof(TModel).FullName + "List";
-            }
-        }
-        protected static Dictionary<String, Object> FilterDictionary = new Dictionary<string, object>();
 
         #region Delegates
         protected delegate void MapDelegate(MapDelegateArgs<TModel, TViewModel> mapDelegateArgs);
@@ -163,17 +162,19 @@ namespace Joe.Business
         public event ViewModelListEvent ViewModelListMapped;
         #endregion
 
-        public new static IRepository<TModel, TViewModel, TContext> CreateRepo(Type RepositoryType)
+        protected String CacheKey
         {
-            IRepository<TModel, TViewModel, TContext> repo;
-            if (RepositoryType.GetGenericArguments().Count() == 2)
-                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel), typeof(TContext)));
-            else if (RepositoryType.GetGenericArguments().Count() == 1)
-                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TContext)));
-            else
-                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TModel), typeof(TViewModel), typeof(TContext)));
-
-            return repo;
+            get
+            {
+                return typeof(TViewModel).FullName + typeof(TModel).FullName;
+            }
+        }
+        protected String ListCacheKey
+        {
+            get
+            {
+                return typeof(TViewModel).FullName + typeof(TModel).FullName + "List";
+            }
         }
 
         public Repository(ISecurity<TModel> security, IDBViewContext repositiory)
@@ -193,7 +194,7 @@ namespace Joe.Business
 
         }
 
-        public Repository(TContext repositiory)
+        public Repository(IDBViewContext repositiory)
             : this(new Security<TModel>(), repositiory)
         {
 
@@ -205,10 +206,11 @@ namespace Joe.Business
 
         }
 
-        public virtual TViewModel Create(TViewModel viewModel, Object dynamicFilters = null)
+        public virtual Result<TViewModel> Create(TViewModel viewModel, Object dynamicFilters = null)
         {
             try
             {
+                var result = new Result<TViewModel>(viewModel);
                 var saved = false;
                 if (typeof(TModel).IsAbstract)
                     throw new Exception("You cannot Create Abstract Model Objects...Duh");
@@ -228,7 +230,7 @@ namespace Joe.Business
                     if (!this.Configuration.EnforceSecurity || this.Security.CanCreate(this.GetModel, viewModel))
                     {
                         if (this.BeforeCreateInitialSave != null)
-                            this.BeforeCreateInitialSave(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel));
+                            this.BeforeCreateInitialSave(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
                         Context.SaveChanges();
                         saved = true;
                     }
@@ -239,7 +241,7 @@ namespace Joe.Business
                 try
                 {
                     if (this.BeforeCreate != null)
-                        this.BeforeCreate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel));
+                        this.BeforeCreate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
                 }
                 catch (Exception ex)
                 {
@@ -265,6 +267,7 @@ namespace Joe.Business
                     this.Context.SaveChanges();
                     FlushListCache(typeof(TModel));
                     viewModel = model.Map<TModel, TViewModel>(dynamicFilters);
+                    result.ViewModel = viewModel;
 
                     this.LogFilter(dynamicFilters);
 
@@ -279,11 +282,11 @@ namespace Joe.Business
 
 
                 if (this.AfterCreate != null)
-                    this.AfterCreate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel));
+                    this.AfterCreate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
                 if (this.ViewModelCreated != null)
-                    this.ViewModelCreated(this, new ViewModelEventArgs<TViewModel>(viewModel));
+                    this.ViewModelCreated(this, new ViewModelEventArgs<TViewModel>(viewModel, OperationType.Create));
 
-                return viewModel;
+                return result;
             }
             catch (Exception ex)
             {
@@ -304,25 +307,30 @@ namespace Joe.Business
             return Get(filter: null);
         }
 
-        public virtual IQueryable<TViewModel> Get(Expression<Func<TViewModel, Boolean>> filter = null,
+        public virtual IQueryable<TViewModel> Get(
+            Expression<Func<TViewModel, Boolean>> filter = null,
+            Expression<Func<TModel, Boolean>> sourceFilter = null,
             int? take = null,
             int? skip = null,
             Boolean setCrudOverride = true,
             Boolean mapRepoFunctionsOverride = true,
             Boolean descending = false,
+            String stringfilter = null,
             Object dyanmicFilter = null,
             params String[] orderBy)
         {
             int count;
-            return Get(out count, filter, take, skip, setCrudOverride, mapRepoFunctionsOverride, descending, null, dyanmicFilter, false, orderBy);
+            return Get(out count, filter, sourceFilter, take, skip, setCrudOverride, mapRepoFunctionsOverride, descending, stringfilter, dyanmicFilter, false, orderBy);
         }
 
         /// <summary>
         /// Get a list of ViewModels
         /// </summary>
         /// <returns>Returns a list of ViewModesl. If UseSecurity and SetCrud are set to true then the list will be filtered to only return results the user has access too.</returns>
-        public virtual IQueryable<TViewModel> Get(out int count,
+        public virtual IQueryable<TViewModel> Get(
+            out int count,
             Expression<Func<TViewModel, Boolean>> filter = null,
+            Expression<Func<TModel, Boolean>> sourceFilter = null,
             int? take = null, int? skip = null,
             Boolean setCrudOverride = true,
             Boolean mapRepoFunctionsOverride = true,
@@ -336,21 +344,24 @@ namespace Joe.Business
             Boolean inMemory = false;
             IQueryable<TViewModel> viewModels;
             IQueryable<TViewModel> source;
-            if (Configuration.GetListFromCache && dyanmicFilters == null)
+            if ((Configuration.GetListFromCache || CacheAttribute.HasCacheAttribute<TViewModel>()) && dyanmicFilters == null)
             {
                 var cachedViewModels = StaticCacheHelper.GetListCache<TModel, TViewModel>();
                 if (cachedViewModels == null)
                 {
                     Joe.Caching.Cache.Instance.Add(ListCacheKey, new TimeSpan(BusinessConfigurationSection.Instance.CacheDuration, 0, 0), (Func<Object>)delegate()
-                {
-                    return StaticCacheHelper.AddCacheItem<TContext>(new Tuple<Type, Type>(typeof(TModel), typeof(TViewModel)));
-                });
+                    {
+                        var method = typeof(StaticCacheHelper).GetMethod("AddCacheItem").MakeGenericMethod((this.Context.GetType()));
+                        return method.Invoke(null, new object[] { new Tuple<Type, Type>(typeof(TModel), typeof(TViewModel)) });
+                    });
 
                     cachedViewModels = StaticCacheHelper.GetListCache<TModel, TViewModel>();
                 }
 
                 source = CopyList(cachedViewModels).AsQueryable();
             }
+            else if(sourceFilter != null)
+                source = this.Source.Where(sourceFilter).Map<TModel, TViewModel>(dyanmicFilters);
             else
                 source = this.Source.Map<TModel, TViewModel>(dyanmicFilters);
 
@@ -492,10 +503,6 @@ namespace Joe.Business
                     }
 
                     //viewModel = model.Map<TModel, TViewModel>(dyanmicFilters);
-                    if (AfterMap != null)
-                        AfterMap(new MapDelegateArgs<TModel, TViewModel>(model, viewModel));
-                    if (ViewModelMapped != null)
-                        ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(viewModel));
 
                     //this.MapRepoFunction(viewModel);
 
@@ -507,7 +514,7 @@ namespace Joe.Business
                     if (!this.Configuration.EnforceSecurity || this.Security.CanRead(this.GetModel, viewModel))
                     {
                         if (this.ViewModelRetrieved != null)
-                            this.ViewModelRetrieved(this, new ViewModelEventArgs<TViewModel>(viewModel));
+                            this.ViewModelRetrieved(this, new ViewModelEventArgs<TViewModel>(viewModel, OperationType.Get));
                         if (this.NotificationProvider != null)
                             this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Read, model, null, this.EmailProvider);
                         //this.Context.ObjectContext.Detach(model);
@@ -529,11 +536,28 @@ namespace Joe.Business
             }
         }
 
-        public virtual TViewModel Update(TViewModel viewModel, Object dynamicFilters = null)
+        public virtual Result<TViewModel> Update(TViewModel viewModel, Object dynamicFilters = null)
+        {
+            return this.Update(viewModel, false, dynamicFilters);
+        }
+
+        public virtual Result<TViewModel> Update(TViewModel viewModel, Boolean overrideApproval, Object dynamicFilters = null)
         {
             TModel model = null;
             try
             {
+                var result = new Result<TViewModel>(viewModel);
+                if (!overrideApproval)
+                {
+                    var approvalProvider = Approval.ApprovalProvider.Instance;
+                    if (approvalProvider != null)
+                    {
+                        var approvalResult = approvalProvider.ProcessApproval(typeof(TModel), this.GetType(), viewModel);
+                        if (approvalResult.HasValue)
+                            throw new ApprovalNeededException(approvalResult.Value);
+                    }
+                }
+
                 if (this.Configuration.IncludeMappings.Count() > 0)
                     model = this.Source.BuildIncludeMappings(this.Configuration.IncludeMappings.ToArray()).WhereVM(viewModel);
                 else
@@ -548,25 +572,28 @@ namespace Joe.Business
                 model.MapBack(viewModel, this.Context);
 
                 if (this.BeforeUpdate != null)
-                    this.BeforeUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel));
+                    this.BeforeUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
 
                 if (!this.Configuration.EnforceSecurity || this.Security.CanUpdate(this.GetModel, viewModel))
                 {
                     this.Context.SaveChanges();
+                    //See if there are any notifications for Model
                     if (this.NotificationProvider != null)
                         this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Update, model, prestineModel, this.EmailProvider);
+                    //See if a History Record Needs to be Saved for Model Type
+                    if (History.HistoryProvider.Instance != null)
+                        History.HistoryProvider.Instance.ProcessHistory(model);
                 }
                 else
                     throw new System.Security.SecurityException("Access to update denied.");
 
                 viewModel = model.Map<TModel, TViewModel>(dynamicFilters);
-
-                FlushSingleItemAndListCache(viewModel, model, dynamicFilters);
+                result.ViewModel = viewModel;
 
                 if (AfterMap != null)
                     AfterMap(new MapDelegateArgs<TModel, TViewModel>(model, viewModel));
                 if (ViewModelMapped != null)
-                    ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(viewModel));
+                    ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(viewModel, OperationType.Update));
 
                 this.MapRepoFunction(viewModel);
 
@@ -574,26 +601,29 @@ namespace Joe.Business
                     this.SetCrud(viewModel, this.ImplementsICrud);
 
                 if (this.AfterUpdate != null)
-                    this.AfterUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel));
+                    this.AfterUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
                 if (this.ViewModelUpdated != null)
-                    ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(viewModel));
+                    ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(viewModel, OperationType.Update));
 
-                return viewModel;
+                FlushSingleItemAndListCache(viewModel, model, dynamicFilters, true);
+
+                return result;
             }
             catch (Exception ex)
             {
                 if (model != null)
-                    //this.Context.ObjectContext.Refresh(System.Data.Entity.Core.Objects.RefreshMode.StoreWins, model);
+                    FlushSingleItemAndListCache(viewModel, model, dynamicFilters, true);
                 if (ex is ValidationException
                     || ex is DbEntityValidationException
-                    || ex is DbUnexpectedValidationException)
+                    || ex is DbUnexpectedValidationException
+                    || ex is ApprovalNeededException)
                     throw ex;
 
                 throw new Exception("Error Updating: " + typeof(TModel).Name, ex);
             }
         }
 
-        public virtual IQueryable<TViewModel> Update(List<TViewModel> viewModelList, Object dynamicFilters = null)
+        public virtual IEnumerable<Result<TViewModel>> Update(List<TViewModel> viewModelList, Object dynamicFilters = null)
         {
             try
             {
@@ -602,9 +632,10 @@ namespace Joe.Business
 
                 //}
 
-                List<Tuple<TModel, TModel, TViewModel>> modelPrestineModelViewModelList = new List<Tuple<TModel, TModel, TViewModel>>();
+                List<Tuple<TModel, TModel, TViewModel, Result<TViewModel>>> modelPrestineModelViewModelList = new List<Tuple<TModel, TModel, TViewModel, Result<TViewModel>>>();
                 foreach (var viewModel in viewModelList)
                 {
+                    var result = new Result<TViewModel>(viewModel);
                     var model = this.Source.WhereVM(viewModel);
                     var prestineModel = model.ShallowClone();
 
@@ -614,11 +645,11 @@ namespace Joe.Business
                     model.MapBack(viewModel, this.Context);
 
                     if (this.BeforeUpdate != null)
-                        this.BeforeUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel));
+                        this.BeforeUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
                     if (this.Configuration.EnforceSecurity && !this.Security.CanUpdate(this.GetModel, viewModel))
                         throw new System.Security.SecurityException("Access to update denied.");
 
-                    modelPrestineModelViewModelList.Add(new Tuple<TModel, TModel, TViewModel>(model, prestineModel, viewModel));
+                    modelPrestineModelViewModelList.Add(new Tuple<TModel, TModel, TViewModel, Result<TViewModel>>(model, prestineModel, viewModel, result));
                 }
 
                 this.Context.SaveChanges();
@@ -634,27 +665,32 @@ namespace Joe.Business
 
                 foreach (var modelTuple in modelPrestineModelViewModelList)
                 {
-
-                    FlushSingleItemAndListCache(modelTuple.Item3, modelTuple.Item1, dynamicFilters);
+                    FlushSingleItemAndListCache(modelTuple.Item3, modelTuple.Item1, dynamicFilters, true);
                     if (this.AfterUpdate != null)
-                        this.AfterUpdate(new SaveDelegateArgs<TModel, TViewModel>(modelTuple.Item1, modelTuple.Item2, modelTuple.Item3));
+                        this.AfterUpdate(new SaveDelegateArgs<TModel, TViewModel>(modelTuple.Item1, modelTuple.Item2, modelTuple.Item3, modelTuple.Item4));
                     if (this.ViewModelUpdated != null)
-                        this.ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(modelTuple.Item3));
+                        this.ViewModelUpdated(this, new ViewModelEventArgs<TViewModel>(modelTuple.Item3, OperationType.Update));
                 }
 
-                var modelList = modelPrestineModelViewModelList.Select(modelTuple => modelTuple.Item1).AsQueryable();
-                var returnList = modelList.Map<TModel, TViewModel>(dynamicFilters);
+                var modelList = modelPrestineModelViewModelList.Select(modelTuple => modelTuple.Item1);
+                var resultList = modelPrestineModelViewModelList.Select(modeltuple => modeltuple.Item4);
+                var returnList = modelList.Map<TModel, TViewModel>(dynamicFilters).ToList();
 
                 returnList.ForEach(vm =>
                 {
                     if (AfterMap != null)
-                        AfterMap(new MapDelegateArgs<TModel, TViewModel>(modelList.WhereVM(vm), vm));
+                        AfterMap(new MapDelegateArgs<TModel, TViewModel>(modelList.AsQueryable().WhereVM(vm), vm));
                     if (ViewModelMapped != null)
-                        ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(vm));
+                        ViewModelMapped(this, new ViewModelEventArgs<TViewModel>(vm, OperationType.Update));
 
                     this.MapRepoFunction(vm);
+
+                    var result = resultList.First(r => r.ViewModel.GetIDs().ToCommaDeleminatedList() == vm.GetIDs().ToCommaDeleminatedList());
+
+                    result.ViewModel = vm;
+
                 });
-                return returnList;
+                return resultList;
             }
             catch (Exception ex)
             {
@@ -687,10 +723,10 @@ namespace Joe.Business
         {
             try
             {
-
+                var result = new Result<TViewModel>(viewModel);
                 TModel model = Source.WhereVM(viewModel);
                 if (this.BeforeDelete != null)
-                    this.BeforeDelete(new SaveDelegateArgs<TModel, TViewModel>(model, model, viewModel));
+                    this.BeforeDelete(new SaveDelegateArgs<TModel, TViewModel>(model, model, viewModel, result));
 
                 if (!this.Configuration.EnforceSecurity || this.Security.CanDelete(this.GetModel, viewModel))
                 {
@@ -699,15 +735,15 @@ namespace Joe.Business
                     if (this.NotificationProvider != null)
                         this.NotificationProvider.ProcessNotifications(typeof(TModel).FullName, NotificationType.Delete, model, null, this.EmailProvider);
 
-                    var getModelArgs = new GetModelArgs(viewModel.GetIDs().ToArray(), null, this.Context);
+                    var getModelArgs = new GetModelArgs<TModel, TViewModel>(viewModel.GetIDs().ToArray(), null, this);
                     this.FlushSingleItemAndListCache(viewModel, model, null);
                 }
                 else
                     throw new System.Security.SecurityException("Access to delete denied.");
                 if (this.AfterDelete != null)
-                    this.AfterDelete(new SaveDelegateArgs<TModel, TViewModel>(model, model, viewModel));
+                    this.AfterDelete(new SaveDelegateArgs<TModel, TViewModel>(model, model, viewModel, result));
                 if (this.ViewModelDeleted != null)
-                    this.ViewModelDeleted(this, new ViewModelEventArgs<TViewModel>(viewModel));
+                    this.ViewModelDeleted(this, new ViewModelEventArgs<TViewModel>(viewModel, OperationType.Delete));
             }
             catch (Exception ex)
             {
@@ -715,37 +751,6 @@ namespace Joe.Business
                     throw ex;
 
                 throw new Exception("Error Deleting: " + typeof(TModel).Name, ex);
-            }
-        }
-
-        [Obsolete("Create new Business Object to insure all business rules are applied")]
-        public static IQueryable<TViewModel> QuickGet(Object dynamicFilters = null)
-        {
-            var repository = new TContext();
-            var source = repository.GetIDbSet<TModel>();
-
-            IQueryable<TViewModel> viewModels;
-
-            viewModels = source.Map<TModel, TViewModel>(dynamicFilters);
-            return viewModels;
-        }
-
-        [Obsolete("Create new Business Object to insure all business rules are applied")]
-        public static TViewModel QuickGet(params object[] ids)
-        {
-            try
-            {
-                var repository = new TContext();
-                var source = repository.GetIDbSet<TModel>();
-
-                TViewModel viewModel;
-                viewModel = source.Find(RepoExtentions.GetTypedIDs<TModel, TViewModel, TContext>(ids)).Map<TModel, TViewModel>();
-
-                return viewModel;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(String.Format("Error Getting {0} for ID: {1}", typeof(TModel).Name, ids.ToCommaDeleminatedList()), ex);
             }
         }
 
@@ -901,9 +906,17 @@ namespace Joe.Business
                             if (this.ConditionTrue(viewModelAsList, allValuesMap.Condition))
                             {
                                 var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
-                                var allValuesList = allValuesMap.Repository != null ?
-                                    Repository.CreateRepo(allValuesMap.Repository, allValuesMap.Model, viewModelType, typeof(TContext)).Get(allValuesMap.Filter)
-                                    : this.Context.GetIQuery(allValuesMap.Model).Map(viewModelType).Filter(allValuesMap.Filter);
+                                IEnumerable allValuesList;
+                                if (allValuesMap.Repository != null)
+                                    allValuesList = Repository.CreateRepo(allValuesMap.Repository, allValuesMap.Model, viewModelType, this.Context.GetType()).Get(allValuesMap.Filter);
+                                else
+                                {
+                                    //var method = typeof(IDBViewContext).GetMethods().Single(m => m.Name == "GetIPersistenceSet" && m.IsGenericMethod);
+                                    //method = method.MakeGenericMethod(allValuesMap.Model);
+                                    //allValuesList = ((IEnumerable)method.Invoke(this.Context, null)).Map(allValuesMap.Model, viewModelType).Filter(allValuesMap.Filter);
+                                    allValuesList = this.Context.GetGenericQueryable(allValuesMap.Model).Map(allValuesMap.Model, viewModelType, null).Filter(allValuesMap.Filter);
+                                }
+
                                 var list = Repository.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
                                 var listAddMethod = list.GetType().GetMethod("Add");
                                 if (!String.IsNullOrWhiteSpace(allValuesMap.IncludedList))
@@ -953,7 +966,7 @@ namespace Joe.Business
                                         prop.GetCustomAttributes(typeof(RepoMappingAttribute), true).SingleOrDefault() != null
                                         || prop.GetCustomAttributes(typeof(NestedRepoMappingAttribute), true).SingleOrDefault() != null
                                         || prop.GetCustomAttributes(typeof(AllValuesAttribute), true).SingleOrDefault() != null
-                                        || prop.GetCustomAttributes(typeof(DynamicFilterAttribute), true).SingleOrDefault() != null);
+                                        || prop.GetCustomAttributes(typeof(DynamicFilterAttribute), true).SingleOrDefault() != null).ToList();
 
             return properties;
         }
@@ -1048,11 +1061,6 @@ namespace Joe.Business
 
         #endregion
 
-        public override IDBViewContext CreateContext()
-        {
-            return new TContext();
-        }
-
         #region Caching Helpers
 
         protected IEnumerable<TViewModel> CopyList(IEnumerable<TViewModel> list)
@@ -1067,13 +1075,18 @@ namespace Joe.Business
 
         protected virtual void FlushSingleItemAndListCache(TViewModel viewModel, TModel model, Object dynamicFilters)
         {
+            FlushSingleItemAndListCache(viewModel, model, dynamicFilters, false);
+        }
+
+        protected virtual void FlushSingleItemAndListCache(TViewModel viewModel, TModel model, Object dynamicFilters, Boolean error)
+        {
             var ids = viewModel.GetIDs().ToArray();
-            var getModelArgs = new GetModelArgs(ids, dynamicFilters, this.Context);
+            var getModelArgs = new GetModelArgs<TModel, TViewModel>(ids, dynamicFilters, this);
             var cacheResult = (CachedResult<TModel, TViewModel>)Caching.Cache.Instance.Get(CacheKey, getModelArgs);
             if (cacheResult != null)
                 cacheResult.Update(model, viewModel);
 
-            FlushTypeByFullName(typeof(TModel), dynamicFilters, false, ids);
+            FlushTypeByFullName(typeof(TModel), dynamicFilters, error, ids);
 
         }
 
@@ -1091,12 +1104,12 @@ namespace Joe.Business
                 //Loop Through All Filters passed in for this model type and clear the cached value
                 foreach (var filter in filters)
                 {
-                    var getModelArgs = new GetModelArgs(modelIDs, filter, this.Context);
+                    var getModelArgs = new GetModelArgs<TModel, TViewModel>(modelIDs, filter, this);
                     Joe.Caching.Cache.Instance.FlushMany(type.FullName, CacheKey, getModelArgs);
                 }
                 if (flushNullFilter)
                 {
-                    var getModelArgs = new GetModelArgs(modelIDs, null, this.Context);
+                    var getModelArgs = new GetModelArgs<TModel, TViewModel>(modelIDs, null, this);
                     Joe.Caching.Cache.Instance.FlushMany(type.FullName, null, getModelArgs);
                 }
             };
@@ -1114,23 +1127,30 @@ namespace Joe.Business
             Joe.Caching.Cache.Instance.FlushMany(modelType.FullName + "List");
         }
 
-        private CachedResult<TModel, TViewModel> GetCachedResultDelegate(GetModelArgs args)
+        private static CachedResult<TModel, TViewModel> GetCachedResultDelegate(GetModelArgs<TModel, TViewModel> args)
         {
             //var context = this.CreateContext();
             TModel model;
-            if (this.GetIncludeMappings.Count() > 0)
-                model = args.Context.GetIDbSet<TModel>().BuildIncludeMappings(this.GetIncludeMappings.ToArray()).Find<TModel, TViewModel>(true, this.GetTypedIDs(args.Ids));
+            if (args.Repository.GetIncludeMappings.Count() > 0)
+                model = args.Repository.Context.GetIPersistenceSet<TModel>().BuildIncludeMappings(args.Repository.GetIncludeMappings.ToArray()).Find<TModel, TViewModel>(true, RepoExtentions.GetTypedIDs<TViewModel>(args.Ids));
             else
-                model = args.Context.GetIDbSet<TModel>().Find(this.GetTypedIDs(args.Ids));
+                model = args.Repository.Context.GetIPersistenceSet<TModel>().Find(RepoExtentions.GetTypedIDs<TViewModel>(args.Ids));
 
             if (model != null)
             {
-                //The First BO will be long lived. Since the context is disposed we must reset it;
-                this.Context = args.Context;
+                //The First BO will be long lived. Since the context is disposed we must reset it;- Not the case now that the Repo is being passed in as an argument
+                //args.Repository.Context = args.Context;
                 var viewModel = model.Map<TModel, TViewModel>(args.Filters);
-                this.LogFilter(args.Filters);
-                this.MapRepoFunction(viewModel);
-                args.Context.Detach(model);
+                args.Repository.LogFilter(args.Filters);
+
+                //Fire Off Events Before Mapping of Repo Functions
+                if (args.Repository.AfterMap != null)
+                    args.Repository.AfterMap(new MapDelegateArgs<TModel, TViewModel>(model, viewModel));
+                if (args.Repository.ViewModelMapped != null)
+                    args.Repository.ViewModelMapped(args.Repository, new ViewModelEventArgs<TViewModel>(viewModel, OperationType.Get));
+
+                args.Repository.MapRepoFunction(viewModel);
+                args.Repository.Context.Detach(model);
                 return new CachedResult<TModel, TViewModel>(model, viewModel);
             }
             return null;
@@ -1146,12 +1166,12 @@ namespace Joe.Business
                 this.BeforeGet();
             //if (this.Configuration.GetListFromCache)
             //{
-            var modelIDs = new GetModelArgs(this.GetTypedIDs(ids), dyanmicFilters, context);
+            var modelIDs = new GetModelArgs<TModel, TViewModel>(this.GetTypedIDs(ids), dyanmicFilters, this);
             cachedResults = (CachedResult<TModel, TViewModel>)Joe.Caching.Cache.Instance.Get(CacheKey, modelIDs);
 
             if (cachedResults == null)
             {
-                Delegate getCachedModel = (Func<GetModelArgs, CachedResult<TModel, TViewModel>>)((GetModelArgs args) =>
+                Delegate getCachedModel = (Func<GetModelArgs<TModel, TViewModel>, CachedResult<TModel, TViewModel>>)((GetModelArgs<TModel, TViewModel> args) =>
                 {
                     return GetCachedResultDelegate(args);
                 });
@@ -1161,18 +1181,7 @@ namespace Joe.Business
             return cachedResults;
         }
 
-        private void LogFilter(Object filter)
-        {
-            if (filter != null)
-            {
-                var key = this.GetFilterKey(filter);
-
-                if (!FilterDictionary.ContainsKey(key))
-                    FilterDictionary.Add(key, filter);
-            }
-        }
-
-        private String GetFilterKey(Object filter)
+        protected override String GetFilterKey(Object filter)
         {
             return typeof(TModel).FullName + filter.GetHashCode();
         }
@@ -1183,7 +1192,67 @@ namespace Joe.Business
         {
             this.Context.Dispose();
         }
+    }
 
+    public abstract class Repository<TModel, TViewModel, TContext> : Repository<TModel, TViewModel>, IRepository<TModel, TViewModel, TContext>
+        where TModel : class
+        where TViewModel : class, new()
+        where TContext : IDBViewContext, new()
+    {
+        public new static IRepository<TModel, TViewModel, TContext> CreateRepo(Type RepositoryType)
+        {
+            IRepository<TModel, TViewModel, TContext> repo = null;
+            if (RepositoryType.IsGenericType)
+            {
+                if (RepositoryType.GetGenericArguments().Count() == 2)
+                    repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel), typeof(TContext)));
+                else if (RepositoryType.GetGenericArguments().Count() == 1)
+                    repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel)));
+                else
+                    repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TModel), typeof(TViewModel), typeof(TContext)));
+            }
+            else
+                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType);
+
+
+            return repo;
+        }
+
+        public override IDBViewContext CreateContext()
+        {
+            return new TContext();
+        }
+
+        [Obsolete("Create new Business Object to insure all business rules are applied")]
+        public static IQueryable<TViewModel> QuickGet(Object dynamicFilters = null)
+        {
+            var repository = new TContext();
+            var source = repository.GetIPersistenceSet<TModel>();
+
+            IQueryable<TViewModel> viewModels;
+
+            viewModels = source.Map<TModel, TViewModel>(dynamicFilters);
+            return viewModels;
+        }
+
+        [Obsolete("Create new Business Object to insure all business rules are applied")]
+        public static TViewModel QuickGet(params object[] ids)
+        {
+            try
+            {
+                var repository = new TContext();
+                var source = repository.GetIPersistenceSet<TModel>();
+
+                TViewModel viewModel;
+                viewModel = source.Find(RepoExtentions.GetTypedIDs<TViewModel>(ids)).Map<TModel, TViewModel>();
+
+                return viewModel;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(String.Format("Error Getting {0} for ID: {1}", typeof(TModel).Name, ids.ToCommaDeleminatedList()), ex);
+            }
+        }
     }
 
     public class ViewModelListEventArgs<TViewModel> : EventArgs
@@ -1199,10 +1268,12 @@ namespace Joe.Business
     public class ViewModelEventArgs<TViewModel> : EventArgs
     {
         public TViewModel ViewModel { get; private set; }
+        public OperationType OperationType { get; private set; }
 
-        public ViewModelEventArgs(TViewModel viewModel)
+        public ViewModelEventArgs(TViewModel viewModel, OperationType operationType)
         {
             ViewModel = viewModel;
+            OperationType = operationType;
         }
     }
 
@@ -1243,12 +1314,14 @@ namespace Joe.Business
         public TViewModel ViewModel { get; private set; }
         public TModel PrestineModel { get; private set; }
         public TModel Model { get; private set; }
+        public Result<TViewModel> Result { get; private set; }
 
-        public SaveDelegateArgs(TModel model, TModel prestineModel, TViewModel viewModel)
+        public SaveDelegateArgs(TModel model, TModel prestineModel, TViewModel viewModel, Result<TViewModel> result)
         {
             Model = model;
             PrestineModel = prestineModel;
             ViewModel = viewModel;
+            Result = result;
         }
     }
 
@@ -1295,18 +1368,20 @@ namespace Joe.Business
         }
     }
 
-    public class GetModelArgs
+    public class GetModelArgs<TModel, TViewModel>
+        where TModel : class
+        where TViewModel : class, new()
     {
         public Object[] Ids { get; private set; }
         public Object Filters { get; set; }
         [JsonIgnore]
-        public IDBViewContext Context { get; set; }
+        public Repository<TModel, TViewModel> Repository { get; set; }
 
-        public GetModelArgs(Object[] ids, Object filters, IDBViewContext context)
+        public GetModelArgs(Object[] ids, Object filters, Repository<TModel, TViewModel> repository)
         {
             Ids = ids;
             Filters = filters;
-            Context = context;
+            Repository = repository;
         }
 
     }

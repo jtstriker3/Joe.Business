@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Joe.Business.Common;
+using System;
+
 namespace Joe.Business.Notification
 {
     public interface INotification

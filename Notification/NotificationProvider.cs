@@ -11,6 +11,7 @@ using System.Collections;
 using System.Text.RegularExpressions;
 using System.Data.Entity;
 using Joe.Security;
+using Joe.Business.Common;
 
 namespace Joe.Business.Notification
 {
@@ -252,14 +253,17 @@ namespace Joe.Business.Notification
             Func<List<INotification>> getResouces = () =>
             {
                 var context = new TContext();
-                var notificationList = context.GetIDbSet<Notification>()
-                    .Include(notification => notification.NotificationProperties)
-                    .Include(notification => notification.Bcc)
-                    .Include(notification => notification.CC)
-                    .Include(notification => notification.To)
-                    .AsNoTracking();
+                var notificationList = (IQueryable<Notification>)context.GetIPersistenceSet<Notification>();
+                
                 if (notificationList == null)
                     throw new Exception(String.Format("Type {0} must be part of your Context", typeof(Notification).FullName));
+                
+                notificationList = notificationList.Include(notification => notification.NotificationProperties)
+                                    .Include(notification => notification.Bcc)
+                                    .Include(notification => notification.CC)
+                                    .Include(notification => notification.To)
+                                    .AsNoTracking();
+              
 
                 return notificationList.ToList<INotification>();
             };
@@ -277,7 +281,7 @@ namespace Joe.Business.Notification
         public override void SaveAlert<T>(INotification notification, T target)
         {
             var context = new TContext();
-            var alertDbSet = context.GetIDbSet<Alert>();
+            var alertDbSet = context.GetIPersistenceSet<Alert>();
             if (alertDbSet != null)
             {
                 var toList = notification.To.Cast<IUser>().ToList();
@@ -318,7 +322,7 @@ namespace Joe.Business.Notification
                 var toList = userList.Select(user => user.Email).ToList();
                 if (notification.CurrentUser)
                 {
-                    var currentUser = context.GetIDbSet<User>().Find(Joe.Security.Security.Provider.UserID);
+                    var currentUser = context.GetIPersistenceSet<User>().Find(Joe.Security.Security.Provider.UserID);
                     if (currentUser != null && !String.IsNullOrWhiteSpace(currentUser.Email) && !toList.Contains(currentUser.Email))
                         toList.Add(currentUser.Email);
                 }
@@ -346,7 +350,7 @@ namespace Joe.Business.Notification
 
                 if (notification.Archive)
                 {
-                    var notificationEmailIDbSet = context.GetIDbSet<NotificationEmail>();
+                    var notificationEmailIDbSet = context.GetIPersistenceSet<NotificationEmail>();
                     if (notificationEmailIDbSet != null)
                     {
                         notificationEmailIDbSet.Add(notificationEmail);
@@ -377,7 +381,7 @@ namespace Joe.Business.Notification
                         }
                         else if (ownerInfo.PropertyType == typeof(String))
                         {
-                            var user = context.GetIDbSet<User>().Find(ownerValue);
+                            var user = context.GetIPersistenceSet<User>().Find(ownerValue);
                             if (user != null && !String.IsNullOrWhiteSpace(user.Email) && !toList.Contains(user.ID))
                                 inList.Add(user);
                         }
@@ -389,7 +393,7 @@ namespace Joe.Business.Notification
         public override void DeleteNotification(INotification notification)
         {
             var context = new TContext();
-            context.GetIDbSet<Notification>().Remove((Notification)notification);
+            context.GetIPersistenceSet<Notification>().Remove((Notification)notification);
             context.SaveChanges();
         }
     }

@@ -121,6 +121,7 @@
     <Compile Include="RepoExtentions.cs" />
     <Compile Include="RepoMappingAttribute.cs" />
     <Compile Include="BusinessConfiguration.cs" />
+    <Compile Include="Report\ChartReport.cs" />
     <Compile Include="Report\ChartReportAttribute.cs" />
     <Compile Include="Report\ChartTypes.cs" />
     <Compile Include="Report\DashStyles.cs" />
@@ -131,6 +132,8 @@
     <Compile Include="Report\IPoint.cs" />
     <Compile Include="Report\Label.cs" />
     <Compile Include="Report\PlotLine.cs" />
+    <Compile Include="Report\Report.cs" />
+    <Compile Include="Report\ReportFilter.cs" />
     <Compile Include="Repository.cs" />
     <Compile Include="DynamicFilter.cs" />
     <Compile Include="Email.cs" />

@@ -78,13 +78,12 @@ namespace Joe.Business.Report
             return (IEnumerable)reportMethod.Invoke(this, new Object[] { report.ReportRepo });
         }
 
-        public virtual Object RunReport<TModel, TViewModel, TContext>(IReport report, Boolean listOverride = false)
-            where TContext : class, IDBViewContext, new()
+        public virtual Object RunReport<TModel, TViewModel>(IReport report, Boolean listOverride = false)
             where TModel : class
             where TViewModel : class, new()
         {
 
-            IRepository<TModel, TViewModel, TContext> repo = Repository<TModel, TViewModel, TContext>.CreateRepo(report.ReportRepo);
+            IRepository<TModel, TViewModel> repo = Repository<TModel, TViewModel>.CreateRepo(report.ReportRepo);
 
             if (!listOverride)
             {
@@ -168,35 +167,32 @@ namespace Joe.Business.Report
             }
         }
 
-        public virtual IEnumerable GetFilterSingleListGeneric<TModel, TViewModel, TRepository>(Type repositoryType)
-            where TRepository : class, IDBViewContext, new()
+        public virtual IEnumerable GetFilterSingleListGeneric<TModel, TViewModel>(Type repositoryType)
             where TModel : class
             where TViewModel : class, new()
         {
 
-            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(repositoryType);
+            IRepository<TModel, TViewModel> repo = Repository<TModel, TViewModel>.CreateRepo(repositoryType);
 
             return repo.Get(setCrudOverride: false);
         }
 
-        public virtual IEnumerable GetFilterValuesGeneric<TModel, TViewModel, TRepository>(IReportFilter filter)
-            where TRepository : class, IDBViewContext, new()
+        public virtual IEnumerable GetFilterValuesGeneric<TModel, TViewModel>(IReportFilter filter)
             where TModel : class
             where TViewModel : class, new()
         {
 
-            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(filter.ListViewRepo);
+            IRepository<TModel, TViewModel> repo = Repository<TModel, TViewModel>.CreateRepo(filter.ListViewRepo);
 
             return repo.Get(setCrudOverride: false, stringFilter: filter.RepoListFilter);
         }
 
-        public virtual String GetFilterDisplayGeneric<TModel, TViewModel, TRepository>(IReportFilter filter)
-            where TRepository : class, IDBViewContext, new()
+        public virtual String GetFilterDisplayGeneric<TModel, TViewModel>(IReportFilter filter)
             where TModel : class
             where TViewModel : class, new()
         {
 
-            IRepository<TModel, TViewModel, TRepository> repo = Repository<TModel, TViewModel, TRepository>.CreateRepo(filter.ListViewRepo);
+            IRepository<TModel, TViewModel> repo = Repository<TModel, TViewModel>.CreateRepo(filter.ListViewRepo);
 
             var selectedFilter = repo.Get(null, false, filter.GetValue().ToArray());
 

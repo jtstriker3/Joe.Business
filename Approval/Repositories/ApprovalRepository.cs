@@ -7,7 +7,7 @@ using System.Text;
 
 namespace Joe.Business.Approval.Repositories
 {
-    public class ApprovalRepository<TContext> : Repository<BusinessApproval, BusinessApprovalView, TContext>
+    public class ApprovalRepository<TContext> : Repository<BusinessApproval, BusinessApprovalView>
         where TContext : IDBViewContext, new()
     {
         public ApprovalRepository()

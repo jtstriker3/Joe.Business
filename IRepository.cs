@@ -8,7 +8,7 @@ using System.Collections;
 
 namespace Joe.Business
 {
-    public interface IRepository
+    public interface IRepository : IDisposable
     {
         void SetCrud(Object viewModel, Boolean listMode = false);
         void MapRepoFunction(Object viewModel, Boolean getModel = true);
@@ -16,7 +16,7 @@ namespace Joe.Business
         IDBViewContext CreateContext();
     }
 
-    public interface IRepository<TModel, TViewModel> : IRepository, IDisposable
+    public interface IRepository<TModel, TViewModel> : IRepository
         where TModel : class
         where TViewModel : class, new()
     {
@@ -45,11 +45,4 @@ namespace Joe.Business
         void SetCrud(IEnumerable<TViewModel> viewModelList, Boolean iCrud, Boolean listMode = false);
         void SetCrud(TViewModel viewModel, Boolean iCrud, Boolean listMode = false);
     }
-    public interface IRepository<TModel, TViewModel, TContext> : IRepository<TModel, TViewModel>, IRepository, IDisposable
-        where TModel : class
-        where TViewModel : class, new()
-        where TContext : IDBViewContext, new()
-    {
-    }
-
 }

@@ -8,54 +8,32 @@ using Joe.Caching;
 using Joe.Initialize;
 using Joe.Map;
 using Joe.Business.Approval.Views;
+using Joe.Business.Configuration;
 
 namespace Joe.Business.Approval
 {
 
-    public abstract class ApprovalProvider
+    public class ApprovalProvider
     {
         protected const String approvalCacheKey = "5bb3ed31-3012-454c-8087-c6880563fc27";
         protected IEmailProvider EmailProvider { get; set; }
-        public static ApprovalProvider Instance { get; private set; }
-
-        public static void RegisterApprovalProvider<TContext>()
-             where TContext : IDBViewContext, new()
+        private static ApprovalProvider _providerInstance;
+        public static ApprovalProvider Instance
         {
-            Instance = new ApprovalProvider<TContext>();
+            get
+            {
+                _providerInstance = _providerInstance ?? new ApprovalProvider();
+                return _providerInstance;
+            }
         }
 
-        protected abstract List<BusinessApproval> GetCacehedApprovals();
-
-        protected abstract BusinessApproval GetApprovalForType(Type type, String trigger);
-
-        protected abstract BusinessApproval GetApprovalByID(int id);
-
-        public abstract Guid? ProcessApproval<TViewModel>(Type type, Type repositoryType, TViewModel viewModel);
-
-        public abstract void SubmitChange(ChangeView changeView);
-
-        public abstract ChangeView GetChange(Guid id);
-
-        public abstract void ApproveResult(Guid createID, int approvalGroupID);
-
-        public abstract void DenyResult(Guid createID, int approvalGroupID);
-
-        public void FlushApprovalCache()
-        {
-            Caching.Cache.Instance.Flush(approvalCacheKey);
-        }
-    }
-
-    public class ApprovalProvider<TContext> : ApprovalProvider
-         where TContext : IDBViewContext, new()
-    {
         internal protected ApprovalProvider()
         {
-            EmailProvider = EmailProviderIntance.EmailProvider;
+            EmailProvider = FactoriesAndProviders.EmailProvider;
 
             Func<List<BusinessApproval>> approvaFunc = () =>
             {
-                TContext context = new TContext();
+                var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<BusinessApproval>();
                 var approvalList = (IQueryable<BusinessApproval>)context.GetIPersistenceSet<BusinessApproval>();
 
                 if (approvalList == null)
@@ -75,22 +53,22 @@ namespace Joe.Business.Approval
 
         }
 
-        protected override List<BusinessApproval> GetCacehedApprovals()
+        protected List<BusinessApproval> GetCacehedApprovals()
         {
             return (List<BusinessApproval>)Cache.Instance.Get(approvalCacheKey);
         }
 
-        protected override BusinessApproval GetApprovalForType(Type type, String trigger)
+        protected BusinessApproval GetApprovalForType(Type type, String trigger)
         {
             return this.GetCacehedApprovals().Where(approval => approval.EntityType == type.FullName && (approval.Trigger == trigger)).FirstOrDefault();
         }
 
-        protected override BusinessApproval GetApprovalByID(int id)
+        protected BusinessApproval GetApprovalByID(int id)
         {
             return this.GetCacehedApprovals().SingleOrDefault(a => a.ID == id);
         }
 
-        public override Guid? ProcessApproval<TViewModel>(Type entityType, Type repositoryType, TViewModel viewModel)
+        public Guid? ProcessApproval<TViewModel>(Type entityType, Type repositoryType, TViewModel viewModel)
         {
 
             var triggerAttribute = typeof(TViewModel).GetCustomAttribute<ApprovalAttribute>();
@@ -101,7 +79,7 @@ namespace Joe.Business.Approval
             var approval = this.GetApprovalForType(entityType, trigger);
             if (approval != null)
             {
-                var context = new TContext();
+                var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<BusinessApproval>();
                 //Create Change and link to All Approvals
                 var changeSet = context.GetIPersistenceSet<Change>();
                 var changeRequest = changeSet.Create();
@@ -127,9 +105,9 @@ namespace Joe.Business.Approval
             //Create Notifications
         }
 
-        public override void SubmitChange(ChangeView changeView)
+        public void SubmitChange(ChangeView changeView)
         {
-            var context = new TContext();
+            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<BusinessApproval>();
             var set = context.GetIPersistenceSet<Change>();
             var approvaResultSet = context.GetIPersistenceSet<ApprovalResult>();
             var approvalSet = context.GetIPersistenceSet<BusinessApproval>();
@@ -177,15 +155,15 @@ namespace Joe.Business.Approval
             // do nothing because it is already submitted
         }
 
-        public override ChangeView GetChange(Guid id)
+        public ChangeView GetChange(Guid id)
         {
-            var context = new TContext();
+            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<BusinessApproval>();
             return context.GetIPersistenceSet<Change>().Find(id).Map<Change, ChangeView>();
         }
 
-        public override void ApproveResult(Guid createID, int approvalGroupID)
+        public void ApproveResult(Guid createID, int approvalGroupID)
         {
-            var context = new TContext();
+            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<BusinessApproval>();
             var approvalResultSet = context.GetIPersistenceSet<ApprovalResult>();
             var result = approvalResultSet.Find(createID, approvalGroupID);
 
@@ -233,9 +211,9 @@ namespace Joe.Business.Approval
 
         }
 
-        public override void DenyResult(Guid createID, int approvalGroupID)
+        public void DenyResult(Guid createID, int approvalGroupID)
         {
-            var context = new TContext();
+            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<BusinessApproval>();
             var approvalResultSet = context.GetIPersistenceSet<ApprovalResult>();
             var result = approvalResultSet.Find(createID, approvalGroupID);
 
@@ -264,6 +242,11 @@ namespace Joe.Business.Approval
 
             context.SaveChanges();
             context.Dispose();
+        }
+
+        public void FlushApprovalCache()
+        {
+            Caching.Cache.Instance.Flush(approvalCacheKey);
         }
     }
 }

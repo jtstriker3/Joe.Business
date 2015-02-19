@@ -48,7 +48,7 @@
     </Reference>
     <Reference Include="Joe.Init, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Joe.Init.1.0.0.3\lib\net40\Joe.Init.dll</HintPath>
+      <HintPath>packages\Joe.Init.1.0.0.3\lib\net45\Joe.Init.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Map, Version=3.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -63,7 +63,7 @@
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\Newtonsoft.Json.6.0.3\lib\net40\Newtonsoft.Json.dll</HintPath>
+      <HintPath>packages\Newtonsoft.Json.6.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -95,13 +95,13 @@
     <Compile Include="Approval\ResultStatus.cs" />
     <Compile Include="Common\UserView.cs" />
     <Compile Include="Configuration\BusinessConfiguration.cs" />
-    <Compile Include="EmailProviderIntance.cs" />
-    <Compile Include="EmailProviderFactory.cs" />
+    <Compile Include="Configuration\FactoriesAndProviders.cs" />
+    <Compile Include="IContextFactory.cs" />
+    <Compile Include="Exceptions\ContextFactoryNotSetException.cs" />
     <Compile Include="History\History.cs" />
     <Compile Include="History\HistoryAttribute.cs" />
     <Compile Include="History\HistoryProvider.cs" />
     <Compile Include="History\IHistoryId.cs" />
-    <Compile Include="IEmailProviderFactory.cs" />
     <Compile Include="Notification\Alert.cs" />
     <Compile Include="Notification\AlertType.cs" />
     <Compile Include="Notification\IAlert.cs" />
@@ -121,6 +121,8 @@
     <Compile Include="RepoExtentions.cs" />
     <Compile Include="RepoMappingAttribute.cs" />
     <Compile Include="BusinessConfiguration.cs" />
+    <Compile Include="Report\Attributes\AverageAttribute.cs" />
+    <Compile Include="Report\Attributes\SumAttribute.cs" />
     <Compile Include="Report\ChartReport.cs" />
     <Compile Include="Report\ChartReportAttribute.cs" />
     <Compile Include="Report\ChartTypes.cs" />
@@ -133,6 +135,7 @@
     <Compile Include="Report\Label.cs" />
     <Compile Include="Report\PlotLine.cs" />
     <Compile Include="Report\Report.cs" />
+    <Compile Include="Report\ReportExtensions.cs" />
     <Compile Include="Report\ReportFilter.cs" />
     <Compile Include="Repository.cs" />
     <Compile Include="DynamicFilter.cs" />

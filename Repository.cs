@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using Newtonsoft.Json;
 using Joe.Business.Approval;
+using Joe.Business.Exceptions;
 
 namespace Joe.Business
 {
@@ -50,19 +51,18 @@ namespace Joe.Business
         /// <returns></returns>
         public static IRepository CreateRepo(Type RepositoryType)
         {
-            var repoInterface = RepositoryType.GetInterface("IRepository`3");
+            var repoInterface = RepositoryType.GetInterface("IRepository`2");
             var model = repoInterface.GetGenericArguments().First();
             var viewModel = repoInterface.GetGenericArguments().ToArray()[1];
-            var repository = repoInterface.GetGenericArguments().ToArray()[2];
-            var genericRepo = typeof(Repository<,,>).MakeGenericType(model, viewModel, repository);
+            var genericRepo = typeof(Repository<,>).MakeGenericType(model, viewModel);
             var method = genericRepo.GetMethod("CreateRepo");
             var repo = (IRepository)method.Invoke(null, new Object[] { RepositoryType });
 
             return repo;
         }
-        public static IRepository CreateRepo(Type RepositoryType, Type model, Type viewModel, Type context)
+        public static IRepository CreateRepo(Type RepositoryType, Type model, Type viewModel)
         {
-            var genericRepo = typeof(Repository<,,>).MakeGenericType(model, viewModel, context);
+            var genericRepo = typeof(Repository<,>).MakeGenericType(model, viewModel);
             var method = genericRepo.GetMethod("CreateRepo");
             var repo = (IRepository)method.Invoke(null, new Object[] { RepositoryType });
 
@@ -91,6 +91,10 @@ namespace Joe.Business
             }
         }
         protected abstract String GetFilterKey(Object filter);
+        public void Dispose()
+        {
+            this.Context.Dispose();
+        }
 
     }
 
@@ -111,17 +115,17 @@ namespace Joe.Business
         protected virtual ISecurity<TModel> Security { get; set; }
         protected INotificationProvider NotificationProvider { get; set; }
         protected IEmailProvider EmailProvider { get; set; }
-        private IDBViewContext _repository;
+        private IDBViewContext _context;
         protected internal override IDBViewContext Context
         {
             get
             {
-                _repository = _repository ?? this.CreateContext();
-                return _repository;
+                _context = _context ?? this.CreateContext();
+                return _context;
             }
             set
             {
-                _repository = value;
+                _context = value;
             }
         }
 
@@ -183,7 +187,7 @@ namespace Joe.Business
             Context = repositiory;
             Security = security ?? this.TryGetSecurityForModel();
             NotificationProvider = Joe.Business.Notification.NotificationProvider.ProviderInstance;
-            EmailProvider = EmailProviderIntance.EmailProvider;
+            EmailProvider = FactoriesAndProviders.EmailProvider;
             var includeAttribute = typeof(TViewModel).GetCustomAttribute<IncludeAttribute>();
             GetIncludeMappings = includeAttribute != null ? includeAttribute.IncludeMappings : new List<String>();
         }
@@ -349,7 +353,7 @@ namespace Joe.Business
                 var cachedViewModels = StaticCacheHelper.GetListCache<TModel, TViewModel>();
                 if (cachedViewModels == null)
                 {
-                    Joe.Caching.Cache.Instance.Add(ListCacheKey, new TimeSpan(BusinessConfigurationSection.Instance.CacheDuration, 0, 0), (Func<Object>)delegate()
+                    Joe.Caching.Cache.Instance.Add(ListCacheKey, new TimeSpan(BusinessConfigurationSection.Instance.CacheDuration, 0, 0), (Func<Object>)delegate ()
                     {
                         var method = typeof(StaticCacheHelper).GetMethod("AddCacheItem").MakeGenericMethod((this.Context.GetType()));
                         return method.Invoke(null, new object[] { new Tuple<Type, Type>(typeof(TModel), typeof(TViewModel)) });
@@ -360,7 +364,7 @@ namespace Joe.Business
 
                 source = CopyList(cachedViewModels).AsQueryable();
             }
-            else if(sourceFilter != null)
+            else if (sourceFilter != null)
                 source = this.Source.Where(sourceFilter).Map<TModel, TViewModel>(dyanmicFilters);
             else
                 source = this.Source.Map<TModel, TViewModel>(dyanmicFilters);
@@ -808,6 +812,14 @@ namespace Joe.Business
             return this.Source.WhereVM(viewModel);
         }
 
+        public override IDBViewContext CreateContext()
+        {
+            if (FactoriesAndProviders.ContextFactory != null)
+                return FactoriesAndProviders.ContextFactory.CreateContext<TModel>();
+
+            throw new ContextFactoryNotSetException();
+        }
+
         #region Eval Attributes
 
         public override void MapRepoFunction(Object viewModel, Boolean getModel = true)
@@ -858,7 +870,7 @@ namespace Joe.Business
                                 if (nestedViewAsObeject != null)
                                 {
                                     var nestedViews = ((IEnumerable)nestedViewAsObeject).Cast<Object>();
-                                    var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelType, this.Context.GetType());
+                                    var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelType);
                                     var list = Repository.CreateObject(typeof(List<>).MakeGenericType(viewModelType));
                                     var listAddMethod = list.GetType().GetMethod("Add");
                                     foreach (var nestedView in nestedViews)
@@ -875,7 +887,7 @@ namespace Joe.Business
                             else if (viewModelInfo.PropertyType.IsClass)
                             {
                                 var nestedView = viewModelInfo.GetValue(viewModel);
-                                var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelInfo.PropertyType, this.Context.GetType());
+                                var nestedViewRepo = Repository.CreateRepo(nestRepoMap.Repository, nestRepoMap.Model, viewModelInfo.PropertyType);
                                 nestRepoMap.SetParameters(viewModel, nestedView);
                                 nestedViewRepo.MapRepoFunction(nestedView);
                             }
@@ -908,7 +920,7 @@ namespace Joe.Business
                                 var viewModelType = viewModelInfo.PropertyType.GetGenericArguments().First();
                                 IEnumerable allValuesList;
                                 if (allValuesMap.Repository != null)
-                                    allValuesList = Repository.CreateRepo(allValuesMap.Repository, allValuesMap.Model, viewModelType, this.Context.GetType()).Get(allValuesMap.Filter);
+                                    allValuesList = Repository.CreateRepo(allValuesMap.Repository, allValuesMap.Model, viewModelType).Get(allValuesMap.Filter);
                                 else
                                 {
                                     //var method = typeof(IDBViewContext).GetMethods().Single(m => m.Name == "GetIPersistenceSet" && m.IsGenericMethod);
@@ -1110,7 +1122,7 @@ namespace Joe.Business
                 if (flushNullFilter)
                 {
                     var getModelArgs = new GetModelArgs<TModel, TViewModel>(modelIDs, null, this);
-                    Joe.Caching.Cache.Instance.FlushMany(type.FullName, null, getModelArgs);
+                    Joe.Caching.Cache.Instance.FlushMany(type.FullName);
                 }
             };
             FlushListCache(modelType);
@@ -1188,72 +1200,86 @@ namespace Joe.Business
 
         #endregion
 
-        public void Dispose()
+        public new static IRepository<TModel, TViewModel> CreateRepo(Type RepositoryType)
         {
-            this.Context.Dispose();
-        }
-    }
-
-    public abstract class Repository<TModel, TViewModel, TContext> : Repository<TModel, TViewModel>, IRepository<TModel, TViewModel, TContext>
-        where TModel : class
-        where TViewModel : class, new()
-        where TContext : IDBViewContext, new()
-    {
-        public new static IRepository<TModel, TViewModel, TContext> CreateRepo(Type RepositoryType)
-        {
-            IRepository<TModel, TViewModel, TContext> repo = null;
+            IRepository<TModel, TViewModel> repo = null;
             if (RepositoryType.IsGenericType)
             {
                 if (RepositoryType.GetGenericArguments().Count() == 2)
-                    repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel), typeof(TContext)));
+                    repo = (IRepository<TModel, TViewModel>)CreateObject(RepositoryType.MakeGenericType(typeof(TModel), typeof(TViewModel)));
                 else if (RepositoryType.GetGenericArguments().Count() == 1)
-                    repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel)));
+                    repo = (IRepository<TModel, TViewModel>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel)));
                 else
-                    repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TModel), typeof(TViewModel), typeof(TContext)));
+                    repo = (IRepository<TModel, TViewModel>)CreateObject(RepositoryType.MakeGenericType(typeof(TModel), typeof(TViewModel)));
             }
             else
-                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType);
+                repo = (IRepository<TModel, TViewModel>)CreateObject(RepositoryType);
 
 
             return repo;
         }
-
-        public override IDBViewContext CreateContext()
-        {
-            return new TContext();
-        }
-
-        [Obsolete("Create new Business Object to insure all business rules are applied")]
-        public static IQueryable<TViewModel> QuickGet(Object dynamicFilters = null)
-        {
-            var repository = new TContext();
-            var source = repository.GetIPersistenceSet<TModel>();
-
-            IQueryable<TViewModel> viewModels;
-
-            viewModels = source.Map<TModel, TViewModel>(dynamicFilters);
-            return viewModels;
-        }
-
-        [Obsolete("Create new Business Object to insure all business rules are applied")]
-        public static TViewModel QuickGet(params object[] ids)
-        {
-            try
-            {
-                var repository = new TContext();
-                var source = repository.GetIPersistenceSet<TModel>();
-
-                TViewModel viewModel;
-                viewModel = source.Find(RepoExtentions.GetTypedIDs<TViewModel>(ids)).Map<TModel, TViewModel>();
-
-                return viewModel;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(String.Format("Error Getting {0} for ID: {1}", typeof(TModel).Name, ids.ToCommaDeleminatedList()), ex);
-            }
-        }
     }
+
+    //public abstract class Repository<TModel, TViewModel, TContext> : Repository<TModel, TViewModel>, IRepository<TModel, TViewModel, TContext>
+    //    where TModel : class
+    //    where TViewModel : class, new()
+    //    where TContext : IDBViewContext, new()
+    //{
+    //    public new static IRepository<TModel, TViewModel, TContext> CreateRepo(Type RepositoryType)
+    //    {
+    //        IRepository<TModel, TViewModel, TContext> repo = null;
+    //        if (RepositoryType.IsGenericType)
+    //        {
+    //            if (RepositoryType.GetGenericArguments().Count() == 2)
+    //                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel), typeof(TContext)));
+    //            else if (RepositoryType.GetGenericArguments().Count() == 1)
+    //                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TViewModel)));
+    //            else
+    //                repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType.MakeGenericType(typeof(TModel), typeof(TViewModel), typeof(TContext)));
+    //        }
+    //        else
+    //            repo = (IRepository<TModel, TViewModel, TContext>)CreateObject(RepositoryType);
+
+
+    //        return repo;
+    //    }
+
+    //    public override IDBViewContext CreateContext()
+    //    {
+    //        return new TContext();
+    //    }
+
+    //    [Obsolete("Create new Business Object to insure all business rules are applied")]
+    //    public static IQueryable<TViewModel> QuickGet(Object dynamicFilters = null)
+    //    {
+    //        var repository = new TContext();
+    //        var source = repository.GetIPersistenceSet<TModel>();
+
+    //        IQueryable<TViewModel> viewModels;
+
+    //        viewModels = source.Map<TModel, TViewModel>(dynamicFilters);
+    //        return viewModels;
+    //    }
+
+    //    [Obsolete("Create new Business Object to insure all business rules are applied")]
+    //    public static TViewModel QuickGet(params object[] ids)
+    //    {
+    //        try
+    //        {
+    //            var repository = new TContext();
+    //            var source = repository.GetIPersistenceSet<TModel>();
+
+    //            TViewModel viewModel;
+    //            viewModel = source.Find(RepoExtentions.GetTypedIDs<TViewModel>(ids)).Map<TModel, TViewModel>();
+
+    //            return viewModel;
+    //        }
+    //        catch (Exception ex)
+    //        {
+    //            throw new Exception(String.Format("Error Getting {0} for ID: {1}", typeof(TModel).Name, ids.ToCommaDeleminatedList()), ex);
+    //        }
+    //    }
+    //}
 
     public class ViewModelListEventArgs<TViewModel> : EventArgs
     {

@@ -15,18 +15,26 @@ using Joe.Business.Common;
 
 namespace Joe.Business.Notification
 {
-    public abstract class NotificationProvider : Joe.Business.Notification.INotificationProvider
+    public class NotificationProvider : Joe.Business.Notification.INotificationProvider
     {
         protected const String notificationCacheKey = "ee21b61d-5bdc-4adc-b56e-a7932a92565b";
 
-        public static INotificationProvider ProviderInstance { get; private set; }
-
-        public static void InitilizeResourceProvider<TContext>()
-            where TContext : IDBViewContext, new()
+        private static INotificationProvider _providerInstance;
+        public static INotificationProvider ProviderInstance
         {
-            var providerType = typeof(NotificationProvider<>).MakeGenericType(typeof(TContext));
-            ProviderInstance = Repository.CreateObject(providerType) as NotificationProvider;
+            get
+            {
+                _providerInstance = _providerInstance ?? new NotificationProvider();
+                return _providerInstance;
+            }
         }
+
+        //public static void InitilizeResourceProvider<TContext>()
+        //    where TContext : IDBViewContext, new()
+        //{
+        //    var providerType = typeof(NotificationProvider<>).MakeGenericType(typeof(TContext));
+        //    ProviderInstance = Repository.CreateObject(providerType) as NotificationProvider;
+        //}
 
         public void FlushNotificationCache()
         {
@@ -42,8 +50,6 @@ namespace Joe.Business.Notification
         {
             this.GetNotifications().Add(notification);
         }
-
-        protected abstract ICollection<INotification> GetNotifications();
 
         protected Boolean ValidateNotificationProperties<T>(IEnumerable<INotificationProperty> notificationProperties, T target, T previousState = default(T))
         {
@@ -165,12 +171,6 @@ namespace Joe.Business.Notification
             }
         }
 
-        public abstract void SendEmail<T>(INotification notification, T target, IEmailProvider emailProvider);
-
-        public abstract void SaveAlert<T>(INotification notification, T target);
-
-        public abstract void DeleteNotification(INotification notification);
-
         protected String ParseMessage<T>(String message, T target)
         {
             if (message != null)
@@ -243,27 +243,23 @@ namespace Joe.Business.Notification
                     users.Remove(user);
             }
         }
-    }
 
-    public class NotificationProvider<TContext> : NotificationProvider
-        where TContext : IDBViewContext, new()
-    {
         protected NotificationProvider()
         {
             Func<List<INotification>> getResouces = () =>
             {
-                var context = new TContext();
+                var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<INotification>();
                 var notificationList = (IQueryable<Notification>)context.GetIPersistenceSet<Notification>();
-                
+
                 if (notificationList == null)
                     throw new Exception(String.Format("Type {0} must be part of your Context", typeof(Notification).FullName));
-                
+
                 notificationList = notificationList.Include(notification => notification.NotificationProperties)
                                     .Include(notification => notification.Bcc)
                                     .Include(notification => notification.CC)
                                     .Include(notification => notification.To)
                                     .AsNoTracking();
-              
+
 
                 return notificationList.ToList<INotification>();
             };
@@ -271,16 +267,16 @@ namespace Joe.Business.Notification
             Joe.Caching.Cache.Instance.Add(notificationCacheKey, new TimeSpan(8, 0, 0), getResouces);
         }
 
-        protected override ICollection<INotification> GetNotifications()
+        protected ICollection<INotification> GetNotifications()
         {
             var notifications = ((List<INotification>)Cache.Instance.Get(notificationCacheKey));
 
             return notifications;
         }
 
-        public override void SaveAlert<T>(INotification notification, T target)
+        public void SaveAlert<T>(INotification notification, T target)
         {
-            var context = new TContext();
+            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<INotification>();
             var alertDbSet = context.GetIPersistenceSet<Alert>();
             if (alertDbSet != null)
             {
@@ -311,11 +307,11 @@ namespace Joe.Business.Notification
                 throw new Exception(String.Format("Type {0} must be part of your Context", typeof(Alert).FullName));
         }
 
-        public override void SendEmail<T>(INotification notification, T target, IEmailProvider emailProvider)
+        public void SendEmail<T>(INotification notification, T target, IEmailProvider emailProvider)
         {
             if (emailProvider != null)
             {
-                var context = new TContext();
+                var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<INotification>();
                 var userList = notification.To.Cast<IUser>().ToList();
                 this.RemoveInvalidUsers(notification, userList);
                 CheckOwner<T>(notification, target, context, userList);
@@ -362,7 +358,7 @@ namespace Joe.Business.Notification
             }
         }
 
-        private static void CheckOwner<T>(INotification notification, T target, TContext context, List<IUser> inList)
+        private static void CheckOwner<T>(INotification notification, T target, IDBViewContext context, List<IUser> inList)
         {
             var toList = inList.Select(user => user.ID);
             if (notification.Owner != null)
@@ -390,9 +386,9 @@ namespace Joe.Business.Notification
             }
         }
 
-        public override void DeleteNotification(INotification notification)
+        public void DeleteNotification(INotification notification)
         {
-            var context = new TContext();
+            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<INotification>();
             context.GetIPersistenceSet<Notification>().Remove((Notification)notification);
             context.SaveChanges();
         }

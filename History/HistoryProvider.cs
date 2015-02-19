@@ -7,29 +7,23 @@ using Joe.Map;
 
 namespace Joe.Business.History
 {
-    public abstract class HistoryProvider
+    public class HistoryProvider
     {
-        protected IEmailProvider EmailProvider { get; set; }
-        public static HistoryProvider Instance { get; private set; }
-
-        public static void RegisterHistoryProvider<TContext>()
-             where TContext : IDBViewContext, new()
+        private static HistoryProvider _providerInstance;
+        public static HistoryProvider Instance
         {
-            Instance = new HistoryProvider<TContext>();
+            get
+            {
+                _providerInstance = _providerInstance ?? new HistoryProvider();
+                return _providerInstance;
+            }
         }
 
-        public abstract void ProcessHistory<TModel>(TModel model);
-    }
-
-    public class HistoryProvider<TContext> : HistoryProvider
-         where TContext : IDBViewContext, new()
-    {
         internal protected HistoryProvider()
         {
 
         }
-
-        public override void ProcessHistory<TModel>(TModel model)
+        public void ProcessHistory<TModel>(TModel model)
         {
             {
                 var historyAttribute = typeof(TModel).GetCustomAttribute<HistoryAttribute>();
@@ -38,7 +32,7 @@ namespace Joe.Business.History
                 {
                     if (model is IHistoryId)
                     {
-                        using (var context = new TContext())
+                        using (var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<History>())
                         {
                             var historyDBSet = context.GetIPersistenceSet<History>();
                             var iHistoryId = (IHistoryId)model;

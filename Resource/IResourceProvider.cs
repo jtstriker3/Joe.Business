@@ -1,7 +1,7 @@
 ﻿using System;
 namespace Joe.Business.Resource
 {
-    interface IResourceProvider
+    public interface IResourceProvider
     {
         void FlushResourceCache();
         string GetResource(string Name, string type);

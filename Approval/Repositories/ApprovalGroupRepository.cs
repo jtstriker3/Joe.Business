@@ -8,8 +8,7 @@ using System.Text;
 
 namespace Joe.Business.Approval.Repositories
 {
-    public class ApprovalGroupRepository<TContext> : Repository<ApprovalGroup, ApprovalGroupView>
-        where TContext : IDBViewContext, new()
+    public class ApprovalGroupRepository : Repository<ApprovalGroup, ApprovalGroupView>
     {
         public ApprovalGroupRepository()
         {

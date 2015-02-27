@@ -7,8 +7,7 @@ using System.Text;
 
 namespace Joe.Business.Approval.Repositories
 {
-    public class ApprovalRepository<TContext> : Repository<BusinessApproval, BusinessApprovalView>
-        where TContext : IDBViewContext, new()
+    public class ApprovalRepository : Repository<BusinessApproval, BusinessApprovalView>
     {
         public ApprovalRepository()
         {
@@ -23,9 +22,10 @@ namespace Joe.Business.Approval.Repositories
 
         public virtual IDictionary<String, String> GetAllModelTypes()
         {
+            var contextType = this.Context.GetType();
             var modelTypeDictionary = new Dictionary<String, String>();
             var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(assembly => assembly.GetTypes())
-                    .Where(type => type.Namespace != null && type.Namespace.Contains(typeof(TContext).Namespace));
+                    .Where(type => type.Namespace != null && type.Namespace.Contains(contextType.Namespace));
 
             foreach (var type in types)
                 if (!modelTypeDictionary.ContainsKey(type.FullName))

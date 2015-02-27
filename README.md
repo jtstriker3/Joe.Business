@@ -22,18 +22,29 @@ public class Context : Joe.MapBack.MapBackDbContext
   public DbSet<Person> People { get; set; }
 }
 
-public class PersonRepository<TViewModel, TContext> : Joe.Business.Repository<Person, TViewModel, TContext>
+/*
+If your solution only has one Context Factory It will automatically Be Set in
+Joe.Business.Configuration.FactoriesAndProviders.ContextFactory
+*/
+public class ContextFactory : IContextFactory
+{
+   public IDBViewContext CreateContext(Type modelType)
+   {
+      return new Context();
+   }
+}
+
+public class PersonRepository<TViewModel> : Joe.Business.Repository<Person, TViewModel>
   where TViewModel : class, new()
-	where TContext : class, Joe.MapBack.IDBViewContext, new()
-	{
-	}
+{
+}
 ```
 ###Use
 When you create a repository that inherits from Joe.Business.Repository it implemnets all the default CRUD methods for you.
 In your UI you code might look something like this.
 
 ```
-var personRepo = new PersonRepository<PersonView, Context>();
+var personRepo = new PersonRepository<PersonView>();
 
 //Get List of Persons
 var people = personRepo.Get();
@@ -78,25 +89,24 @@ protected GetListDelegate BeforeReturnList;
 
 These will mostly be used to implement business rules. Lets look at a simple example
 ```
-public class PersonRepository<TViewModel, TContext> : Joe.Business.Repository<Person, TViewModel, TContext>
+public class PersonRepository<TViewModel> : Joe.Business.Repository<Person, TViewModel>
   where TViewModel : class, new()
-	where TContext : class, Joe.MapBack.IDBViewContext, new()
-	{
-	  public PersonRepository()
-	  {
-	    this.AfterCreate += WhenSavedCreateAnotherPerson;
-	    this.AfterSave += WhenSavedCreateAnotherPerson;
-	  }
+{
+  public PersonRepository()
+  {
+    this.AfterCreate += WhenSavedCreateAnotherPerson;
+    this.AfterSave += WhenSavedCreateAnotherPerson;
+  }
 	
-	  protected void WhenSavedCreateAnotherPerson(Person model, TViewModel viewModel, TContext context)
-	  {
-	    var personDbSet = context.GetIDbSet<Person>();
-	    Person anotherPerson = dbSet.Create();
-	    anotherPerson.Name = "Jim";
-	    dbSet.Add(anotherPerson);
-	    context.SaveChanges();
-	  }
-	}
+  protected void WhenSavedCreateAnotherPerson(SaveDelegateArgs<Person, TViewModel> args)
+  {
+    var personDbSet = this.Context.GetIDbSet<Person>();
+    Person anotherPerson = dbSet.Create();
+    anotherPerson.Name = "Jim";
+    dbSet.Add(anotherPerson);
+    this.Context.SaveChanges();
+  }
+}
 ```
 
 ###MapRepoFunction
@@ -120,13 +130,11 @@ public class PersonView
   //The Repository that you are calling to generate to get the data
   public class PersonRepository<TViewModel, TContext> : Joe.Business.Repository<Person, TViewModel, TContext>
   where TViewModel : class, new()
-	where TContext : class, Joe.MapBack.IDBViewContext, new()
-	{
-	  public String ReverseName(String name)
-	  {
-	    return name.Reverse();
-	  }
-	}
+{
+  public String ReverseName(String name)
+  {
+    return name.Reverse();
+  }
 }
 ```
 

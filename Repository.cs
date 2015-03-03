@@ -231,7 +231,7 @@ namespace Joe.Business
                 model = this.Source.Add(model);
                 model.MapBack(viewModel, this.Context, () =>
                 {
-                    if (!this.Configuration.EnforceSecurity || this.Security.CanCreate(this.GetModel, viewModel))
+                    if (!this.Configuration.EnforceSecurity || this.Security.CanCreate(this.GetModel, viewModel, false))
                     {
                         if (this.BeforeCreateInitialSave != null)
                             this.BeforeCreateInitialSave(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
@@ -266,7 +266,7 @@ namespace Joe.Business
 
                     throw ex;
                 }
-                if (!this.Configuration.EnforceSecurity || this.Security.CanCreate(this.GetModel, viewModel))
+                if (!this.Configuration.EnforceSecurity || this.Security.CanCreate(this.GetModel, viewModel, false))
                 {
                     this.Context.SaveChanges();
                     FlushListCache(typeof(TModel));
@@ -345,129 +345,115 @@ namespace Joe.Business
             params String[] orderBy
             )
         {
-            Boolean inMemory = false;
-            IQueryable<TViewModel> viewModels;
-            IQueryable<TViewModel> source;
-            if ((Configuration.GetListFromCache || CacheAttribute.HasCacheAttribute<TViewModel>()) && dyanmicFilters == null)
+            if (!this.Configuration.EnforceSecurity || this.Security.HasReadRights<TViewModel>())
             {
-                var cachedViewModels = StaticCacheHelper.GetListCache<TModel, TViewModel>();
-                if (cachedViewModels == null)
+                Boolean inMemory = false;
+                IQueryable<TViewModel> viewModels;
+                IQueryable<TViewModel> source;
+                if ((Configuration.GetListFromCache || CacheAttribute.HasCacheAttribute<TViewModel>()))
                 {
-                    Joe.Caching.Cache.Instance.Add(ListCacheKey, new TimeSpan(BusinessConfigurationSection.Instance.CacheDuration, 0, 0), (Func<Object>)delegate ()
-                    {
-                        var method = typeof(StaticCacheHelper).GetMethod("AddCacheItem").MakeGenericMethod((this.Context.GetType()));
-                        return method.Invoke(null, new object[] { new Tuple<Type, Type>(typeof(TModel), typeof(TViewModel)) });
-                    });
+                    IQueryable<TViewModel> cachedViewModels;
+                    String listCacheKey = ListCacheKey;
+                    //Must Add the user ID to cache key becuase it could be different for each user
+                    if (this.Configuration.EnforceSecurity && this.Security.GetType() != typeof(Security<TModel>))
+                        listCacheKey += this.Security.ProviderInstance.UserID;
 
-                    cachedViewModels = StaticCacheHelper.GetListCache<TModel, TViewModel>();
-                }
-
-                source = CopyList(cachedViewModels).AsQueryable();
-            }
-            else if (sourceFilter != null)
-                source = this.Source.Where(sourceFilter).Map<TModel, TViewModel>(dyanmicFilters);
-            else
-                source = this.Source.Map<TModel, TViewModel>(dyanmicFilters);
-
-            viewModels = source;
-
-            if (filter != null)
-                viewModels = viewModels.Where(filter);
-            if (!String.IsNullOrEmpty(stringfilter))
-                viewModels = viewModels.Filter(stringfilter);
-            if (setCount && this.Configuration.SetCount || take.HasValue)
-                count = viewModels.Count();
-            else
-                count = 0;
-
-            if (orderBy.Count() > 0 && orderBy.First() != null)
-            {
-                if (!descending)
-                    viewModels = viewModels.OrderBy(orderBy);
-                else
-                    viewModels = viewModels.OrderByDescending(orderBy);
-            }
-            else if (skip.HasValue)
-            {
-                if (!typeof(IOrderedEnumerable<>).IsAssignableFrom(viewModels.GetType().GetGenericTypeDefinition())
-                    && !typeof(IOrderedQueryable).IsAssignableFrom(viewModels.GetType()))
-                {
-                    var defatulOrderBy = typeof(TViewModel).GetProperties().Where(prop => prop.PropertyType.IsSimpleType()
-                        && new ViewMappingHelper(prop, typeof(TModel)).ViewMapping != null).FirstOrDefault();
-
-                    if (defatulOrderBy != null)
-                        viewModels = viewModels.OrderBy(defatulOrderBy.Name);
-                }
-            }
-            if (skip.HasValue)
-                viewModels = viewModels.Skip(skip.Value);
-            if (take.HasValue)
-                viewModels = viewModels.Take(take.Value);
-
-            if (this.Configuration.SetCrud && setCrudOverride)
-            {
-                var viewModelList = viewModels.ToList();
-                inMemory = true;
-                this.SetCrud(viewModelList, this.ImplementsICrud, true);
-
-                if (this.Configuration.EnforceSecurity)
-                {
-                    if (take.HasValue)
-                    {
-                        int runningSkip = skip ?? 0;
-                        viewModels = viewModelList.Where(vm => this.Security.CanRead(this.GetModel, vm)).AsQueryable();
-                        while (viewModels.Count() < take && runningSkip < count && count > take)
+                    cachedViewModels = Joe.Caching.Cache.Instance.GetOrAdd(listCacheKey, new TimeSpan(BusinessConfigurationSection.Instance.CacheDuration, 0, 0),
+                        (IQueryable<TModel> list, object dyFilters, Expression<Func<TModel, Boolean>> sFilter) =>
                         {
+                            IQueryable<TModel> modelSource;
+                            if (this.Configuration.EnforceSecurity)
+                                modelSource = this.Security.SecureList(list);
+                            else
+                                modelSource = list;
 
-                            runningSkip = runningSkip + take.Value;
-                            if (viewModels.Count() < take && runningSkip < count && count > take.Value)
-                            {
-                                var paddedViewModels = source;
-                                if (orderBy.Count() > 0 && orderBy.First() != null)
-                                    if (!descending)
-                                        paddedViewModels = paddedViewModels.OrderBy(orderBy);
-                                    else
-                                        paddedViewModels = paddedViewModels.OrderByDescending(orderBy);
-                                var paddedViewModelList = paddedViewModels.Take(take.Value).Skip(runningSkip).ToList();
-                                paddedViewModelList = paddedViewModelList.Where(vm => this.Security.CanRead(this.GetModel, vm)).ToList();
-                                this.SetCrud(paddedViewModels, this.ImplementsICrud, true);
-                                viewModels = viewModels.Union(paddedViewModelList);
-                            }
+                            if (sFilter != null)
+                                source = modelSource.Where(sFilter).Map<TModel, TViewModel>(dyFilters);
+                            else
+                                source = modelSource.Map<TModel, TViewModel>(dyFilters);
 
-                        }
+                            return source.ToList().AsQueryable();
+                        }, this.Source, dyanmicFilters, sourceFilter);
 
-                        //if (setCount && take.HasValue && count > take.Value)
-                        //    count = count - (take.Value - viewModels.Count()); 
-
-                        viewModels = viewModels.Take(take.Value);
-                    }
-                    else
-                    {
-                        viewModels = viewModelList.Where(vm => this.Security.CanRead(this.GetModel, vm)).AsQueryable();
-                        count = viewModels.Count();
-                    }
+                    source = CopyList(cachedViewModels).AsQueryable();
                 }
                 else
+                {
+                    IQueryable<TModel> modelSource;
+                    if (this.Configuration.EnforceSecurity)
+                        modelSource = this.Security.SecureList(this.Source);
+                    else
+                        modelSource = this.Source;
+
+                    if (sourceFilter != null)
+                        source = modelSource.Where(sourceFilter).Map<TModel, TViewModel>(dyanmicFilters);
+                    else
+                        source = modelSource.Map<TModel, TViewModel>(dyanmicFilters);
+                }
+
+                viewModels = source;
+
+                if (filter != null)
+                    viewModels = viewModels.Where(filter);
+                if (!String.IsNullOrEmpty(stringfilter))
+                    viewModels = viewModels.Filter(stringfilter);
+                if (setCount && this.Configuration.SetCount || take.HasValue)
+                    count = viewModels.Count();
+                else
+                    count = 0;
+
+                if (orderBy.Count() > 0 && orderBy.First() != null)
+                {
+                    if (!descending)
+                        viewModels = viewModels.OrderBy(orderBy);
+                    else
+                        viewModels = viewModels.OrderByDescending(orderBy);
+                }
+                else if (skip.HasValue)
+                {
+                    if (!typeof(IOrderedEnumerable<>).IsAssignableFrom(viewModels.GetType().GetGenericTypeDefinition())
+                        && !typeof(IOrderedQueryable).IsAssignableFrom(viewModels.GetType()))
+                    {
+                        var defatulOrderBy = typeof(TViewModel).GetProperties().Where(prop => prop.PropertyType.IsSimpleType()
+                            && new ViewMappingHelper(prop, typeof(TModel)).ViewMapping != null).FirstOrDefault();
+
+                        if (defatulOrderBy != null)
+                            viewModels = viewModels.OrderBy(defatulOrderBy.Name);
+                    }
+                }
+                if (skip.HasValue)
+                    viewModels = viewModels.Skip(skip.Value);
+                if (take.HasValue)
+                    viewModels = viewModels.Take(take.Value);
+
+                if (this.Configuration.SetCrud && setCrudOverride)
+                {
+                    var viewModelList = viewModels.ToList();
+                    inMemory = true;
+                    this.SetCrud(viewModelList, this.ImplementsICrud);
                     viewModels = viewModelList.AsQueryable();
+                }
+
+                if (ViewModelListMapped != null)
+                    viewModels = ViewModelListMapped(this, new ViewModelListEventArgs<TViewModel>(viewModels));
+
+                if (this.Configuration.MapRepositoryFunctionsForList && mapRepoFunctionsOverride)
+                {
+                    if (!inMemory)
+                        //Load the list into memory so any changes are saved to the List returned to calling function
+                        viewModels = viewModels.ToList().AsQueryable();
+                    viewModels.ForEach(vm => this.MapRepoFunction(vm, true));
+                }
+
+                if (this.BeforeReturnList != null)
+                    viewModels = this.BeforeReturnList(new GetListDelegateArgs<TViewModel>(viewModels));
+                if (this.ViewModelListRetrieved != null)
+                    viewModels = ViewModelListRetrieved(this, new ViewModelListEventArgs<TViewModel>(viewModels));
+
+                return viewModels;
             }
 
-            if (ViewModelListMapped != null)
-                viewModels = ViewModelListMapped(this, new ViewModelListEventArgs<TViewModel>(viewModels));
-
-            if (this.Configuration.MapRepositoryFunctionsForList && mapRepoFunctionsOverride)
-            {
-                if (!inMemory)
-                    //Load the list into memory so any changes are saved to the List returned to calling function
-                    viewModels = viewModels.ToList().AsQueryable();
-                viewModels.ForEach(vm => this.MapRepoFunction(vm, true));
-            }
-
-            if (this.BeforeReturnList != null)
-                viewModels = this.BeforeReturnList(new GetListDelegateArgs<TViewModel>(viewModels));
-            if (this.ViewModelListRetrieved != null)
-                viewModels = ViewModelListRetrieved(this, new ViewModelListEventArgs<TViewModel>(viewModels));
-
-            return viewModels;
+            throw new UnauthorizedAccessException("You do not have Read Access!");
         }
 
         public override IEnumerable Get(string filter = null)
@@ -515,7 +501,7 @@ namespace Joe.Business
 
                     if (this.AfterGet != null)
                         this.AfterGet(new AfterGetDelegateArgs<TViewModel>(viewModel));
-                    if (!this.Configuration.EnforceSecurity || this.Security.CanRead(this.GetModel, viewModel))
+                    if (!this.Configuration.EnforceSecurity || this.Security.CanRead(this.GetModel, viewModel, false))
                     {
                         if (this.ViewModelRetrieved != null)
                             this.ViewModelRetrieved(this, new ViewModelEventArgs<TViewModel>(viewModel, OperationType.Get));
@@ -578,7 +564,7 @@ namespace Joe.Business
                 if (this.BeforeUpdate != null)
                     this.BeforeUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
 
-                if (!this.Configuration.EnforceSecurity || this.Security.CanUpdate(this.GetModel, viewModel))
+                if (!this.Configuration.EnforceSecurity || this.Security.CanUpdate(this.GetModel, viewModel, false))
                 {
                     this.Context.SaveChanges();
                     //See if there are any notifications for Model
@@ -650,7 +636,7 @@ namespace Joe.Business
 
                     if (this.BeforeUpdate != null)
                         this.BeforeUpdate(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
-                    if (this.Configuration.EnforceSecurity && !this.Security.CanUpdate(this.GetModel, viewModel))
+                    if (this.Configuration.EnforceSecurity && !this.Security.CanUpdate(this.GetModel, viewModel, false))
                         throw new System.Security.SecurityException("Access to update denied.");
 
                     modelPrestineModelViewModelList.Add(new Tuple<TModel, TModel, TViewModel, Result<TViewModel>>(model, prestineModel, viewModel, result));
@@ -732,7 +718,7 @@ namespace Joe.Business
                 if (this.BeforeDelete != null)
                     this.BeforeDelete(new SaveDelegateArgs<TModel, TViewModel>(model, model, viewModel, result));
 
-                if (!this.Configuration.EnforceSecurity || this.Security.CanDelete(this.GetModel, viewModel))
+                if (!this.Configuration.EnforceSecurity || this.Security.CanDelete(this.GetModel, viewModel, false))
                 {
                     this.Source.Remove(model);
                     this.Context.SaveChanges();
@@ -1022,28 +1008,28 @@ namespace Joe.Business
             }
         }
 
-        public override void SetCrud(Object viewModel, Boolean listMode = false)
+        public override void SetCrud(Object viewModel, Boolean listMode)
         {
             if (typeof(TViewModel).IsAssignableFrom(viewModel.GetType()))
-                this.SetCrud((TViewModel)viewModel, ImplementsICrud, listMode);
+                this.SetCrud((TViewModel)viewModel, ImplementsICrud, false);
             else
                 throw new Exception("The Object passed in must be derived from TViewModel");
         }
 
-        public void SetCrud(IEnumerable<TViewModel> viewModelList, Boolean iCrud, Boolean listMode = false)
+        public void SetCrud(IEnumerable<TViewModel> viewModelList, Boolean iCrud)
         {
             foreach (var viewModel in viewModelList)
             {
-                SetCrud(viewModel, iCrud, listMode);
+                SetCrud(viewModel, iCrud, true);
             }
         }
 
-        public void SetCrud(TViewModel viewModel, Boolean iCrud, Boolean listMode = false)
+        public void SetCrud(TViewModel viewModel, Boolean iCrud, bool forList)
         {
             if (iCrud)
-                Security.SetCrud(this.GetModel, viewModel, listMode);
+                Security.SetCrud(this.GetModel, viewModel, forList);
             else
-                Security.SetCrudReflection(this.GetModel, viewModel, listMode);
+                Security.SetCrudReflection(this.GetModel, viewModel, forList);
         }
 
         private static IEnumerable<Type> Types { get; set; }

@@ -10,5 +10,6 @@ namespace Joe.Business
     public interface IContextFactory
     {
         IDBViewContext CreateContext<TModel>();
+        IDBViewContext CreateContext(Type modelType);
     }
 }

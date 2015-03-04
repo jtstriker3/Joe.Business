@@ -31,7 +31,7 @@ namespace Joe.Business.Report
             return this.GetReports().Single(reprort => reprort.Name == name);
         }
 
-        public virtual Object Run<TRepository>(IReport inReport, out IReport report)
+        public virtual Object Run(IReport inReport, out IReport report)
         {
             report = this.GetReport(inReport.Name);
             //inReport.UiHint = report.UiHint;
@@ -44,7 +44,7 @@ namespace Joe.Business.Report
             if (!report.IsCustomRepository)
             {
                 var reportMethod = this.GetType().GetMethod("RunReport");
-                reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ReportView, typeof(TRepository));
+                reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ReportView);
                 return reportMethod.Invoke(this, new Object[] { report, false });
             }
             else
@@ -70,11 +70,10 @@ namespace Joe.Business.Report
             return repository.RunReport(filters);
         }
 
-        public virtual IEnumerable GetSingleList<TContext>(IReport report)
-            where TContext : IDBViewContext, new()
+        public virtual IEnumerable GetSingleList(IReport report)
         {
             var reportMethod = this.GetType().GetMethod("GetFilterSingleListGeneric");
-            reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ListView, typeof(TContext));
+            reportMethod = reportMethod.MakeGenericMethod(report.Model, report.ListView);
             return (IEnumerable)reportMethod.Invoke(this, new Object[] { report.ReportRepo });
         }
 
@@ -133,34 +132,32 @@ namespace Joe.Business.Report
                 return repo.Get(setCrudOverride: false, dynamicFilter: dynamicFilterObj);
         }
 
-        public virtual IEnumerable GetFilterValues<TRepository>(IReportFilter filter)
-            where TRepository : IDBViewContext, new()
+        public virtual IEnumerable GetFilterValues(IReportFilter filter)
         {
             if (filter.ListViewRepo != null)
             {
                 var getFilterMethod = this.GetType().GetMethod("GetFilterValuesGeneric");
-                getFilterMethod = getFilterMethod.MakeGenericMethod(filter.Model, filter.ListView, typeof(TRepository));
+                getFilterMethod = getFilterMethod.MakeGenericMethod(filter.Model, filter.ListView);
                 return (IEnumerable)getFilterMethod.Invoke(this, new[] { filter });
             }
             else
             {
-                var context = new TRepository();
+                var context = Joe.Business.Configuration.FactoriesAndProviders.ContextFactory.CreateContext(filter.Model);
                 return context.GetIPersistenceSet(filter.Model).Map(filter.ListView);
             }
         }
 
-        public virtual String GetFilterDisplay<TRepository>(IReportFilter filter)
-           where TRepository : IDBViewContext, new()
+        public virtual String GetFilterDisplay(IReportFilter filter)
         {
             if (filter.ListViewRepo != null)
             {
                 var getFilterMethod = this.GetType().GetMethod("GetFilterDisplayGeneric");
-                getFilterMethod = getFilterMethod.MakeGenericMethod(filter.Model, filter.ListView, typeof(TRepository));
+                getFilterMethod = getFilterMethod.MakeGenericMethod(filter.Model, filter.ListView);
                 return getFilterMethod.Invoke(this, new[] { filter }).ToString();
             }
             else
             {
-                var context = new TRepository();
+                var context = Joe.Business.Configuration.FactoriesAndProviders.ContextFactory.CreateContext(filter.Model);
                 var selectedFilter = MapExtensions.Map(context.GetIPersistenceSet(filter.Model).Find(RepoExtentions.GetTypedIDs(filter.ListView, filter.GetValue().ToArray())), filter.ListView);
 
                 return BuildDisplay(filter, selectedFilter);
@@ -171,7 +168,6 @@ namespace Joe.Business.Report
             where TModel : class
             where TViewModel : class, new()
         {
-
             IRepository<TModel, TViewModel> repo = Repository<TModel, TViewModel>.CreateRepo(repositoryType);
 
             return repo.Get(setCrudOverride: false);

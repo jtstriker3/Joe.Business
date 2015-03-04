@@ -12,5 +12,10 @@ namespace Joe.Business.Tests
         {
             return new MockContext();
         }
+
+        public MapBack.IDBViewContext CreateContext(Type modelType)
+        {
+            return new MockContext();
+        }
     }
 }

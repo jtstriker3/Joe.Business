@@ -19,6 +19,7 @@ using System.Threading;
 using Newtonsoft.Json;
 using Joe.Business.Approval;
 using Joe.Business.Exceptions;
+using Joe.Caching;
 
 namespace Joe.Business
 {
@@ -358,22 +359,7 @@ namespace Joe.Business
                     if (this.Configuration.EnforceSecurity && this.Security.GetType() != typeof(Security<TModel>))
                         listCacheKey += this.Security.ProviderInstance.UserID;
 
-                    cachedViewModels = Joe.Caching.Cache.Instance.GetOrAdd(listCacheKey, new TimeSpan(BusinessConfigurationSection.Instance.CacheDuration, 0, 0),
-                        (IQueryable<TModel> list, object dyFilters, Expression<Func<TModel, Boolean>> sFilter) =>
-                        {
-                            IQueryable<TModel> modelSource;
-                            if (this.Configuration.EnforceSecurity)
-                                modelSource = this.Security.SecureList(list);
-                            else
-                                modelSource = list;
-
-                            if (sFilter != null)
-                                source = modelSource.Where(sFilter).Map<TModel, TViewModel>(dyFilters);
-                            else
-                                source = modelSource.Map<TModel, TViewModel>(dyFilters);
-
-                            return source.ToList().AsQueryable();
-                        }, this.Source, dyanmicFilters, sourceFilter);
+                    cachedViewModels = Joe.Caching.Cache.Instance.GetOrAdd(listCacheKey, new TimeSpan(BusinessConfigurationSection.Instance.CacheDuration, 0, 0), GetCachedList, this.Source, dyanmicFilters, sourceFilter, this.Configuration, this.Security);
 
                     source = CopyList(cachedViewModels).AsQueryable();
                 }
@@ -460,6 +446,23 @@ namespace Joe.Business
         {
             int count = 0;
             return this.Get(out count, stringfilter: filter, setCrudOverride: false, mapRepoFunctionsOverride: false);
+        }
+
+        private static IQueryable<TViewModel> GetCachedList([DoNotHash]IQueryable<TModel> list, object dyFilters, Expression<Func<TModel, Boolean>> sFilter, BusinessConfigurationAttribute configuration, [DoNotHash]ISecurity<TModel> security)
+        {
+            IQueryable<TModel> modelSource;
+            IQueryable<TViewModel> source;
+            if (configuration.EnforceSecurity)
+                modelSource = security.SecureList(list);
+            else
+                modelSource = list;
+
+            if (sFilter != null)
+                source = modelSource.Where(sFilter).Map<TModel, TViewModel>(dyFilters);
+            else
+                source = modelSource.Map<TModel, TViewModel>(dyFilters);
+
+            return source.ToList().AsQueryable();
         }
 
         #endregion

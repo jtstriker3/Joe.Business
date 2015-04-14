@@ -29,5 +29,20 @@ namespace Joe.Business.Tests
                 throw new NotImplementedException();
             }
         }
+
+        public IEnumerable<string> GetCurrentUsersRoles()
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<string> GetUsersRoles(string userID)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool IsUserInRole(string userID, IEnumerable<string> roles)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -232,7 +232,7 @@ namespace Joe.Business
                 model = this.Source.Add(model);
                 model.MapBack(viewModel, this.Context, () =>
                 {
-                    if (!this.Configuration.EnforceSecurity || this.Security.CanCreate(this.GetModel, viewModel, false))
+                    if (!this.Configuration.EnforceSecurity || this.Security.CanCreate( vm => model, viewModel, false))
                     {
                         if (this.BeforeCreateInitialSave != null)
                             this.BeforeCreateInitialSave(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));

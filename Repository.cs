@@ -232,7 +232,7 @@ namespace Joe.Business
                 model = this.Source.Add(model);
                 model.MapBack(viewModel, this.Context, () =>
                 {
-                    if (!this.Configuration.EnforceSecurity || this.Security.CanCreate( vm => model, viewModel, false))
+                    if (!this.Configuration.EnforceSecurity || this.Security.CanCreate(vm => model, viewModel, false))
                     {
                         if (this.BeforeCreateInitialSave != null)
                             this.BeforeCreateInitialSave(new SaveDelegateArgs<TModel, TViewModel>(model, prestineModel, viewModel, result));
@@ -1168,17 +1168,8 @@ namespace Joe.Business
             //if (this.Configuration.GetListFromCache)
             //{
             var modelIDs = new GetModelArgs<TModel, TViewModel>(this.GetTypedIDs(ids), dyanmicFilters, this);
-            cachedResults = (CachedResult<TModel, TViewModel>)Joe.Caching.Cache.Instance.Get(CacheKey, modelIDs);
 
-            if (cachedResults == null)
-            {
-                Delegate getCachedModel = (Func<GetModelArgs<TModel, TViewModel>, CachedResult<TModel, TViewModel>>)((GetModelArgs<TModel, TViewModel> args) =>
-                {
-                    return GetCachedResultDelegate(args);
-                });
-                Joe.Caching.Cache.Instance.Add(CacheKey, new TimeSpan(cacheTimeout, 0, 0), getCachedModel);
-                cachedResults = (CachedResult<TModel, TViewModel>)Joe.Caching.Cache.Instance.Get(CacheKey, modelIDs);
-            }
+            cachedResults = (CachedResult<TModel, TViewModel>)Joe.Caching.Cache.Instance.GetOrAdd(CacheKey, new TimeSpan(cacheTimeout, 0, 0), (a) => { return GetCachedResultDelegate(a); }, modelIDs);
             return cachedResults;
         }
 

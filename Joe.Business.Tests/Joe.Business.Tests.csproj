@@ -45,7 +45,7 @@
     </Reference>
     <Reference Include="Joe.Caching, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\Joe.Caching.3.0.0.2\lib\net40\Joe.Caching.dll</HintPath>
+      <HintPath>..\packages\Joe.Caching.3.0.0.3\lib\net40\Joe.Caching.dll</HintPath>
     </Reference>
     <Reference Include="Joe.Init">
       <HintPath>..\packages\Joe.Init.1.0.0.3\lib\net45\Joe.Init.dll</HintPath>

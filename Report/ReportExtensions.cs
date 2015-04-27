@@ -48,11 +48,12 @@ namespace Joe.Business.Report
                         value = value.ToString().Replace("%", String.Empty);
 
                     if (value != null)
-                        return Math.Round(double.Parse(value.ToString()), attribute.Precision);
+                        return double.Parse(value.ToString());
 
                     return 0;
                 });
 
+                sum = Math.Round(sum, attribute.Precision);
                 Object endValue;
                 if (attribute.IsPercent)
                     endValue = sum.ToString() + '%';

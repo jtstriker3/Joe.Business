@@ -15,6 +15,7 @@ namespace Joe.Business.Report
         private Type ReportViewType { get; set; }
         private IReportFilterAttribute ReportFilterAttribute { get; set; }
         public String Value { get; set; }
+        public IEnumerable<String> IEnumerableValue { get; set; }
         [ViewMapping(Key = true)]
         public String PropertyName { get; set; }
         private PropertyInfo Info { get; set; }
@@ -51,7 +52,7 @@ namespace Joe.Business.Report
             IsValueFilter = reportFilterAttribute.IsValueFilter;
             RepoListFilter = reportFilterAttribute.RepoListFilter;
             GetDisplayFromContext = reportFilterAttribute.GetDisplayFromContext;
-
+            IEnumerableValue = new List<String>();
         }
 
         public virtual IQueryable<T> ApplyFilterToList<T>(IQueryable<T> list)
@@ -81,18 +82,20 @@ namespace Joe.Business.Report
                     if (useFilterValue != null && useFilterValue.PropertyType == typeof(Boolean) && Value != null)
                         Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName + "Active", true);
 
-                    if (Value != null)
+                    Object typedValue = null;
+                    if (FilterType.ImplementsIEnumerable() && this.IEnumerableValue != null)
                     {
-                        var safeType = Nullable.GetUnderlyingType(FilterType) ?? FilterType;
-                        Object typedValue;
-                        if (safeType.IsEnum)
-                            typedValue = Enum.Parse(safeType, Value);
-                        else
-                            typedValue = Convert.ChangeType(Value, safeType);
-                        var reportViewProperty = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(type, ReportFilterAttribute.FilterPropertyName);
-                        if (reportViewProperty != null && reportViewProperty.PropertyType == FilterType)
-                            Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName, typedValue);
+                        var genericType = FilterType.GetGenericArguments().FirstOrDefault();
+                        typedValue = IEnumerableValue.Select(value => this.ChangeType(genericType, value));
+                        typedValue = this.Cast(genericType, (IEnumerable)typedValue);
                     }
+                    else if (Value != null)
+                        typedValue = this.ChangeType(FilterType, Value);
+
+
+                    var reportViewProperty = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(type, ReportFilterAttribute.FilterPropertyName);
+                    if (reportViewProperty != null && reportViewProperty.PropertyType == FilterType)
+                        Joe.Reflection.ReflectionHelper.SetEvalProperty(reportView, ReportFilterAttribute.FilterPropertyName, typedValue);
 
                     this.SetFilterValuesResursive(reportView);
                 }
@@ -160,6 +163,29 @@ namespace Joe.Business.Report
         public IEnumerable<String> GetValue()
         {
             return Value.Split(new[] { "||" }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        protected ICollection CreateList(Type genericType)
+        {
+            var listType = typeof(List<>).MakeGenericType(genericType);
+            return (ICollection)Repository.CreateObject(listType);
+        }
+
+        protected Object ChangeType(Type type, Object value)
+        {
+            var safeType = Nullable.GetUnderlyingType(type) ?? type;
+            if (safeType.IsEnum)
+                return Enum.Parse(safeType, value.ToString());
+            else
+                return Convert.ChangeType(value, safeType);
+
+        }
+
+        protected IEnumerable Cast(Type genericType, IEnumerable list)
+        {
+            var castMethod = typeof(Enumerable).GetMethod("Cast").MakeGenericMethod(genericType);
+
+            return (IEnumerable)castMethod.Invoke(null, new[] { list });
         }
     }
 }

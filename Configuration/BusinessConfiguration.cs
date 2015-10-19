@@ -48,6 +48,32 @@ namespace Joe.Business.Configuration
             }
         }
 
+        [ConfigurationProperty("useNotifications", DefaultValue = "true")]
+        public bool UseNotifications
+        {
+            get
+            {
+                return Convert.ToBoolean(this["useNotifications"]);
+            }
+            set
+            {
+                this["useNotifications"] = value;
+            }
+        }
+
+        [ConfigurationProperty("useApproval", DefaultValue = "true")]
+        public bool UseApproval
+        {
+            get
+            {
+                return Convert.ToBoolean(this["useApproval"]);
+            }
+            set
+            {
+                this["useApproval"] = value;
+            }
+        }
+
         public static BusinessConfigurationSection Instance
         {
             get

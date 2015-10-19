@@ -22,8 +22,12 @@ namespace Joe.Business.Approval
         {
             get
             {
-                _providerInstance = _providerInstance ?? new ApprovalProvider();
-                return _providerInstance;
+                if (Configuration.BusinessConfigurationSection.Instance.UseApproval)
+                {
+                    _providerInstance = _providerInstance ?? new ApprovalProvider();
+                    return _providerInstance;
+                }
+                return null;
             }
         }
 
@@ -37,7 +41,7 @@ namespace Joe.Business.Approval
                 var approvalList = (IQueryable<BusinessApproval>)context.GetIPersistenceSet<BusinessApproval>();
 
                 if (approvalList == null)
-                    throw new Exception(String.Format("Type {0} must be part of your Context", typeof(BusinessApproval).FullName));
+                    throw new Exception(String.Format("Type {0} must be part of your Context or set BussinessConfiguration.UseApproval = false", typeof(BusinessApproval).FullName));
                 approvalList = approvalList
                                     .Include(a => a.ApprovalGroups)
                                     .Include(a => a.ApprovalGroups.Select(ag => ag.Users))

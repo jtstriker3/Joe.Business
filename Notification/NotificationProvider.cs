@@ -24,8 +24,12 @@ namespace Joe.Business.Notification
         {
             get
             {
-                _providerInstance = _providerInstance ?? new NotificationProvider();
-                return _providerInstance;
+                if (Configuration.BusinessConfigurationSection.Instance.UseNotifications)
+                {
+                    _providerInstance = _providerInstance ?? new NotificationProvider();
+                    return _providerInstance;
+                }
+                return null;
             }
         }
 
@@ -252,7 +256,7 @@ namespace Joe.Business.Notification
                 var notificationList = (IQueryable<Notification>)context.GetIPersistenceSet<Notification>();
 
                 if (notificationList == null)
-                    throw new Exception(String.Format("Type {0} must be part of your Context", typeof(Notification).FullName));
+                    throw new Exception(String.Format("Type {0} must be part of your Context or set BussinessConfiguration.UseNotification = false", typeof(Notification).FullName));
 
                 notificationList = notificationList.Include(notification => notification.NotificationProperties)
                                     .Include(notification => notification.Bcc)

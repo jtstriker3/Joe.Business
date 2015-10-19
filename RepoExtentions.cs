@@ -184,7 +184,7 @@ namespace Joe.Business
 
         public static T ShallowClone<T>(this T objectToClone)
         {
-            var newObject = (T)Expression.Lambda(Expression.Block(Expression.New(typeof(T)))).Compile().DynamicInvoke();
+            var newObject = (T)Expression.Lambda(Expression.Block(Expression.New(objectToClone.GetType()))).Compile().DynamicInvoke();
 
             foreach (var prop in typeof(T).GetProperties())
             {

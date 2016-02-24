@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Text;
 
@@ -9,6 +10,7 @@ namespace Joe.Business
     {
         public String PropertyName { get; set; }
         public String Message { get; set; }
+        public dynamic Identity { get; set; } = new ExpandoObject();
 
         public ValidationWarning(String message)
         {

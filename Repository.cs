@@ -187,7 +187,7 @@ namespace Joe.Business
             Configuration = (BusinessConfigurationAttribute)GetType().GetCustomAttributes(typeof(BusinessConfigurationAttribute), true).SingleOrDefault() ?? new BusinessConfigurationAttribute();
             Context = repositiory;
             Security = security ?? this.TryGetSecurityForModel();
-            NotificationProvider = Joe.Business.Notification.NotificationProvider.ProviderInstance;
+            NotificationProvider = Configuration.UseNotifications ? Joe.Business.Notification.NotificationProvider.ProviderInstance : null;
             EmailProvider = FactoriesAndProviders.EmailProvider;
             var includeAttribute = typeof(TViewModel).GetCustomAttribute<IncludeAttribute>();
             GetIncludeMappings = includeAttribute != null ? includeAttribute.IncludeMappings : new List<String>();
@@ -540,7 +540,7 @@ namespace Joe.Business
             try
             {
                 var result = new Result<TViewModel>(viewModel);
-                if (!overrideApproval)
+                if (!overrideApproval && Configuration.UseBusinessApprovals)
                 {
                     var approvalProvider = Approval.ApprovalProvider.Instance;
                     if (approvalProvider != null)

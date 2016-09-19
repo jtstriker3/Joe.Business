@@ -29,6 +29,8 @@ namespace Joe.Business
         public Boolean UseCacheForSingleItem { get; set; }
         public Type SecurityType { get; set; }
         public Type DefualtSecurityType { get; set; }
+        public bool UseNotifications { get; set; } = true;
+        public bool UseBusinessApprovals { get; set; } = true;
         public IEnumerable<String> IncludeMappings { get; set; }
 
         public BusinessConfigurationAttribute()

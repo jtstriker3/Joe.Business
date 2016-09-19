@@ -64,5 +64,29 @@ namespace Joe.Business.History
                 }
             }
         }
+
+        public History GetLatestHistory<TModel>(TModel model, IDBViewContext context = null)
+        {
+            var contextNull = context == null;
+            var historyAttribute = typeof(TModel).GetCustomAttribute<HistoryAttribute>();
+            if (historyAttribute != null)
+            {
+                if (model is IHistoryId)
+                {
+                    context = context ?? Configuration.FactoriesAndProviders.ContextFactory.CreateContext<History>();
+                    var iHistoryId = (IHistoryId)model;
+                    var historyID = iHistoryId.GetID();
+                    var history = context.GetIPersistenceSet<History>().OrderByDescending(h => h.Version).FirstOrDefault(h => h.Type == typeof(TModel).FullName && h.ID == historyID);
+
+                    if (contextNull)
+                        context.Dispose();
+
+                    return history;
+
+                }
+            }
+
+            return null;
+        }
     }
 }

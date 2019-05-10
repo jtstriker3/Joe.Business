@@ -26,14 +26,15 @@ namespace Joe.Business.History
         public void ProcessHistory<TModel>(TModel model)
         {
             {
+                
                 var historyAttribute = typeof(TModel).GetCustomAttribute<HistoryAttribute>();
-
                 if (historyAttribute != null)
                 {
                     if (model is IHistoryId)
                     {
                         using (var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<History>())
                         {
+                            var typeName = typeof(TModel).FullName;
                             var historyDBSet = context.GetIPersistenceSet<History>();
                             var iHistoryId = (IHistoryId)model;
 
@@ -41,7 +42,7 @@ namespace Joe.Business.History
 
                             var id = iHistoryId.GetID();
                             var previousHistory = historyDBSet.Where(history =>
-                                                                           history.Type == typeof(TModel).FullName
+                                                                           history.Type == typeName
                                                                            && history.ID == id).OrderByDescending(history => history.Version).FirstOrDefault();
 
                             if (previousHistory != null)
@@ -50,7 +51,7 @@ namespace Joe.Business.History
                                 newHistory.Version = 1;
 
                             newHistory.ID = iHistoryId.GetID();
-                            newHistory.Type = typeof(TModel).FullName;
+                            newHistory.Type = typeName;
                             newHistory.UpdateByID = Joe.Security.Security.Provider.UserID;
                             newHistory.Data = Newtonsoft.Json.JsonConvert.SerializeObject(Joe.Map.MapExtensions.Map(model, historyAttribute.ViewType));
                             newHistory.DateSaved = DateTime.Now;

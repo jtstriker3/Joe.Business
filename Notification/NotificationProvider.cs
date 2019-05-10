@@ -278,7 +278,7 @@ namespace Joe.Business.Notification
             return notifications;
         }
 
-        public void SaveAlert<T>(INotification notification, T target)
+        public virtual void SaveAlert<T>(INotification notification, T target)
         {
             var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<INotification>();
             var alertDbSet = context.GetIPersistenceSet<Alert>();
@@ -311,7 +311,7 @@ namespace Joe.Business.Notification
                 throw new Exception(String.Format("Type {0} must be part of your Context", typeof(Alert).FullName));
         }
 
-        public void SendEmail<T>(INotification notification, T target, IEmailProvider emailProvider)
+        public virtual void SendEmail<T>(INotification notification, T target, IEmailProvider emailProvider)
         {
             if (emailProvider != null)
             {
@@ -362,6 +362,13 @@ namespace Joe.Business.Notification
             }
         }
 
+        public virtual void DeleteNotification(INotification notification)
+        {
+            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<INotification>();
+            context.GetIPersistenceSet<Notification>().Remove((Notification)notification);
+            context.SaveChanges();
+        }
+
         private static void CheckOwner<T>(INotification notification, T target, IDBViewContext context, List<IUser> inList)
         {
             var toList = inList.Select(user => user.ID);
@@ -388,13 +395,6 @@ namespace Joe.Business.Notification
                     }
                 }
             }
-        }
-
-        public void DeleteNotification(INotification notification)
-        {
-            var context = Configuration.FactoriesAndProviders.ContextFactory.CreateContext<INotification>();
-            context.GetIPersistenceSet<Notification>().Remove((Notification)notification);
-            context.SaveChanges();
         }
     }
 }

@@ -197,7 +197,9 @@ namespace Joe.Business
                         //{
                         //    value = ((IEnumerable)value).AsQueryable().AsNoTracking();
                         //}
-                        prop.SetValue(newObject, value);
+
+                        if (!prop.PropertyType.ImplementsIEnumerable() || prop.GetCustomAttribute<IncludeAttribute>() != null)
+                            prop.SetValue(newObject, value);
                     }
                 }
             }
@@ -212,6 +214,11 @@ namespace Joe.Business
                 return resourceProvider.GetResource(name, "Global");
             return name;
         }
+
+    }
+
+    public class IncludeIEnumberable : Attribute
+    {
 
     }
 }
